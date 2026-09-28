@@ -1,0 +1,55 @@
+# =====================================================================
+# Notifications Discord automatiques
+#
+# GitHub lance ce workflow aux horaires ci-dessous (en heure UTC).
+# Chaque notification a deux horaires, un pour l'heure d'été et un pour
+# l'heure d'hiver : le script ne poste que pour le bon.
+# ⚠️ Si tu modifies un horaire, modifie aussi SCHEDULES dans scripts/notify.py.
+#
+# Lancement manuel : onglet Actions > Notifications Discord > Run workflow.
+# =====================================================================
+
+name: Notifications Discord
+
+on:
+  schedule:
+    - cron: "0 18 * * 0"   # relance, dimanche 20h (heure d'été)
+    - cron: "0 19 * * 0"   # relance, dimanche 20h (heure d'hiver)
+    - cron: "0 10 * * *"   # planning du jour, 12h (heure d'été)
+    - cron: "0 11 * * *"   # planning du jour, 12h (heure d'hiver)
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Notification à envoyer"
+        type: choice
+        options: [planning, relance]
+        default: planning
+      dry_run:
+        description: "Test : afficher le message dans les logs sans l'envoyer"
+        type: boolean
+        default: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Envoyer la notification
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          DISCORD_ROLE_ID: ${{ vars.DISCORD_ROLE_ID }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MODE: ${{ inputs.mode }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python scripts/notify.py
