@@ -51,7 +51,11 @@
     <div id="view-app" class="dashboard" hidden>
 
       <section class="events" aria-labelledby="events-title">
-        <h2 id="events-title">Prochains rendez-vous</h2>
+        <div class="events-head">
+          <h2 id="events-title">Prochains rendez-vous</h2>
+          <!-- Réservé aux admins (affiché par app.js) -->
+          <button id="add-event-btn" class="btn btn-ghost" type="button" hidden>Ajouter</button>
+        </div>
         <ol id="events-list" class="events-list"></ol>
       </section>
 
@@ -65,11 +69,13 @@
           </div>
         </div>
 
-        <div id="board-actions" class="board-actions">
+        <!-- Où j'en suis pour cette semaine -->
+        <div class="my-status">
+          <p id="my-status-text"></p>
           <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
         </div>
 
-        <p id="board-help" class="board-help" hidden></p>
+        <p id="board-help" class="board-help"></p>
 
         <!-- Choix du "pinceau" pendant la saisie -->
         <div id="brushes" class="brushes" role="radiogroup" aria-label="Ce que tu coches" hidden>
@@ -104,6 +110,7 @@
         <!-- Visible hors saisie -->
         <div id="view-extras">
           <p id="slot-detail" class="slot-detail" aria-live="polite"></p>
+          <button id="plan-slot-btn" class="btn btn-ghost plan-slot-btn" type="button" hidden>Planifier un rendez-vous à ce créneau</button>
           <p id="missing" class="missing"></p>
           <div id="comments-block" hidden>
             <h3 class="comments-title">Précisions de la team</h3>
@@ -117,8 +124,61 @@
     <p id="error" class="error" role="alert" hidden></p>
   </main>
 
-  <!-- Message temporaire (ex. après enregistrement) -->
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <!-- Formulaire des rendez-vous (admins) : fenêtre modale native -->
+  <dialog id="event-dialog" class="event-dialog" aria-labelledby="event-dialog-title">
+    <form id="event-form" novalidate>
+      <h2 id="event-dialog-title">Nouveau rendez-vous</h2>
+
+      <div class="field">
+        <label for="ev-type">Type</label>
+        <select id="ev-type">
+          <option value="entrainement">Entraînement</option>
+          <option value="scrim">Scrim</option>
+          <option value="match_officiel">Match officiel</option>
+          <option value="review">Review</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="ev-title">Titre <span class="optional">(facultatif)</span></label>
+        <input id="ev-title" type="text" maxlength="80" autocomplete="off">
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="ev-date">Date</label>
+          <input id="ev-date" type="date" required>
+        </div>
+        <div class="field">
+          <label for="ev-start">Début</label>
+          <input id="ev-start" type="time" step="900" required>
+        </div>
+        <div class="field">
+          <label for="ev-end">Fin <span class="optional">(facultatif)</span></label>
+          <input id="ev-end" type="time" step="900">
+        </div>
+      </div>
+
+      <div class="field" id="ev-opponent-field">
+        <label for="ev-opponent">Adversaire</label>
+        <input id="ev-opponent" type="text" maxlength="60" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="ev-notes">Notes <span class="optional">(facultatif)</span></label>
+        <textarea id="ev-notes" rows="3" maxlength="500" placeholder="Ex. : on travaille les compos early game"></textarea>
+      </div>
+
+      <p id="ev-error" class="edit-error" role="alert" hidden></p>
+
+      <div class="edit-actions">
+        <button id="ev-save" class="btn btn-primary" type="submit">Ajouter</button>
+        <button id="ev-cancel" class="btn btn-ghost" type="button">Annuler</button>
+        <button id="ev-delete" class="btn btn-ghost btn-danger" type="button" hidden>Supprimer</button>
+      </div>
+    </form>
+  </dialog>
 
   <!-- Librairie Supabase (expose l'objet global `supabase`) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

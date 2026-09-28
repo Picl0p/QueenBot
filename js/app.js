@@ -7,7 +7,7 @@
 //   1. Petits utilitaires (sélection d'éléments, dates, création de HTML)
 //   2. Connexion à Supabase
 //   3. Gestion de la session (connecté / pas membre / pas connecté)
-//   4. Chargement et affichage des rendez-vous
+//   4. Rendez-vous : affichage et planification (admins)
 //   5. Échiquier des dispos (consultation et saisie)
 //   6. Branchement des boutons, puis démarrage
 // =====================================================================
@@ -119,6 +119,12 @@ const state = {
   mySlots: new Map(),    // mes créneaux pendant la saisie (copie de travail)
   editing: false,        // mode saisie actif ?
   brush: "dispo",        // statut appliqué en cliquant : dispo, a_eviter, pas_dispo
+  flash: null,           // message à afficher une fois (ex. après enregistrement)
+
+  // Rendez-vous
+  weekEvents: [],        // rendez-vous de la semaine affichée
+  eventMap: new Map(),   // "jour|heure" → rendez-vous qui occupent la case
+  editingEvent: null,    // rendez-vous ouvert dans le formulaire (null = création)
 };
 
 
@@ -217,8 +223,22 @@ async function logout() {
 
 
 // ---------------------------------------------------------------------
-// 4. Rendez-vous (table events)
+// 4. Rendez-vous (table events) et planification
+//
+// Tout le monde voit les rendez-vous. Les admins peuvent en ajouter,
+// modifier et supprimer : les boutons n'apparaissent que pour eux, et
+// surtout la RLS (règles SQL) refuse l'écriture aux autres.
 // ---------------------------------------------------------------------
+
+const isAdmin = () => Boolean(state.player?.is_admin);
+
+// Types pour lesquels le champ "Adversaire" a un sens
+const TYPES_AVEC_ADVERSAIRE = ["scrim", "match_officiel"];
+
+// Date → "20:30" (heure locale)
+function toHHMM(d) {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 async function loadPlayers() {
   const { data, error } = await db.from("players").select("id, pseudo, status").order("pseudo");
@@ -242,6 +262,7 @@ async function loadEvents() {
 }
 
 function renderEvents(events) {
+  $("#add-event-btn").hidden = !isAdmin();
   const list = $("#events-list");
   list.replaceChildren();
 
@@ -251,12 +272,11 @@ function renderEvents(events) {
   }
 
   const fmtDay = { weekday: "long", day: "numeric", month: "long" };
-  const fmtTime = { hour: "2-digit", minute: "2-digit" };
 
   for (const ev of events) {
     const start = new Date(ev.starts_at);
     const end = ev.ends_at ? new Date(ev.ends_at) : null;
-    const time = start.toLocaleTimeString("fr-FR", fmtTime) + (end ? ` à ${end.toLocaleTimeString("fr-FR", fmtTime)}` : "");
+    const time = toHHMM(start) + (end ? ` à ${toHHMM(end)}` : "");
 
     list.append(
       el("li", { class: `event type-${ev.type}` },
@@ -267,10 +287,116 @@ function renderEvents(events) {
           el("span", { class: "event-type", text: TYPE_LABELS[ev.type] || ev.type }),
           ev.opponent ? el("span", { class: "event-opponent", text: `contre ${ev.opponent}` }) : null
         ),
-        ev.notes ? el("p", { class: "event-notes", text: ev.notes }) : null
+        ev.notes ? el("p", { class: "event-notes", text: ev.notes }) : null,
+        isAdmin()
+          ? el("button", { type: "button", class: "event-edit", text: "Modifier", onclick: () => openEventDialog(ev) })
+          : null
       )
     );
   }
+}
+
+// --- Formulaire (fenêtre <dialog>) ---
+
+// ev : rendez-vous à modifier (ou null pour en créer un)
+// preset : { date: Date, hour: 20 } pour pré-remplir depuis l'échiquier
+function openEventDialog(ev = null, preset = null) {
+  state.editingEvent = ev;
+  $("#ev-error").hidden = true;
+
+  if (ev) {
+    const start = new Date(ev.starts_at);
+    const end = ev.ends_at ? new Date(ev.ends_at) : null;
+    $("#ev-type").value = ev.type;
+    $("#ev-title").value = ev.title;
+    $("#ev-date").value = toISODate(start);
+    $("#ev-start").value = toHHMM(start);
+    $("#ev-end").value = end ? toHHMM(end) : "";
+    $("#ev-opponent").value = ev.opponent || "";
+    $("#ev-notes").value = ev.notes || "";
+  } else {
+    const date = preset?.date || new Date();
+    const hour = preset?.hour ?? 20;
+    $("#ev-type").value = "entrainement";
+    $("#ev-title").value = "";
+    $("#ev-date").value = toISODate(date);
+    $("#ev-start").value = `${String(hour).padStart(2, "0")}:00`;
+    $("#ev-end").value = `${String((hour + 2) % 24).padStart(2, "0")}:00`;
+    $("#ev-opponent").value = "";
+    $("#ev-notes").value = "";
+  }
+
+  $("#event-dialog-title").textContent = ev ? "Modifier le rendez-vous" : "Nouveau rendez-vous";
+  $("#ev-save").textContent = ev ? "Enregistrer" : "Ajouter";
+  $("#ev-delete").hidden = !ev;
+  updateTitlePlaceholder();
+  $("#event-dialog").showModal();
+}
+
+// Le titre est facultatif : par défaut, on reprend le type (ex. "Scrim")
+function updateTitlePlaceholder() {
+  const type = $("#ev-type").value;
+  $("#ev-title").placeholder = TYPE_LABELS[type];
+  $("#ev-opponent-field").hidden = !TYPES_AVEC_ADVERSAIRE.includes(type);
+}
+
+function eventFormError(message) {
+  const box = $("#ev-error");
+  box.textContent = message;
+  box.hidden = false;
+}
+
+async function saveEvent(e) {
+  e.preventDefault();   // empêche le rechargement de la page par le formulaire
+
+  const type = $("#ev-type").value;
+  const date = $("#ev-date").value;
+  const startTime = $("#ev-start").value;
+  const endTime = $("#ev-end").value;
+
+  if (!date || !startTime) return eventFormError("Indique au moins une date et une heure de début.");
+
+  // "2026-10-02" + "20:30" → Date en heure locale
+  const start = new Date(`${date}T${startTime}`);
+  let end = null;
+  if (endTime) {
+    end = new Date(`${date}T${endTime}`);
+    // Fin avant le début (ex. 23h → 1h) : ça se termine le lendemain
+    if (end <= start) end.setDate(end.getDate() + 1);
+  }
+
+  const payload = {
+    type,
+    title: $("#ev-title").value.trim() || TYPE_LABELS[type],
+    starts_at: start.toISOString(),   // stocké en UTC dans la base
+    ends_at: end ? end.toISOString() : null,
+    opponent: TYPES_AVEC_ADVERSAIRE.includes(type) ? ($("#ev-opponent").value.trim() || null) : null,
+    notes: $("#ev-notes").value.trim() || null,
+  };
+
+  const button = $("#ev-save");
+  button.disabled = true;
+
+  const { error } = state.editingEvent
+    ? await db.from("events").update(payload).eq("id", state.editingEvent.id)
+    : await db.from("events").insert(payload);
+
+  button.disabled = false;
+  if (error) return eventFormError(`L'enregistrement a échoué : ${error.message}`);
+
+  $("#event-dialog").close();
+  await Promise.all([loadEvents(), loadBoard()]);
+}
+
+async function deleteEvent() {
+  const ev = state.editingEvent;
+  if (!ev || !confirm(`Supprimer « ${ev.title} » ?`)) return;
+
+  const { error } = await db.from("events").delete().eq("id", ev.id);
+  if (error) return eventFormError(`La suppression a échoué : ${error.message}`);
+
+  $("#event-dialog").close();
+  await Promise.all([loadEvents(), loadBoard()]);
 }
 
 
@@ -303,8 +429,12 @@ async function loadBoard() {
   const weekEnd = toISODate(addDays(state.weekStart, 7));
   renderWeekLabel();
 
-  // Quatre requêtes indépendantes, lancées en parallèle
-  const [heat, missing, mine, submissions] = await Promise.all([
+  // Bornes de la semaine en heure locale, pour filtrer les rendez-vous
+  const weekStartTs = new Date(state.weekStart).toISOString();
+  const weekEndTs = addDays(state.weekStart, 7).toISOString();
+
+  // Cinq requêtes indépendantes, lancées en parallèle
+  const [heat, missing, mine, submissions, weekEvents] = await Promise.all([
     db.rpc("availability_heatmap", { p_week_start: week }),
     db.rpc("players_missing_availability", { p_week_start: week }),
     db.from("availabilities")
@@ -316,9 +446,13 @@ async function loadBoard() {
     db.from("availability_submissions")
       .select("player_id, comment, submitted_at, players(pseudo)")
       .eq("week_start", week),
+    db.from("events")
+      .select("id, title, type, starts_at, ends_at, opponent")
+      .gte("starts_at", weekStartTs)
+      .lt("starts_at", weekEndTs),
   ]);
 
-  for (const res of [heat, missing, mine, submissions]) {
+  for (const res of [heat, missing, mine, submissions, weekEvents]) {
     if (res.error) return showError(`Impossible de charger les dispos : ${res.error.message}`);
   }
 
@@ -328,6 +462,7 @@ async function loadBoard() {
   state.savedSlots = new Map(mine.data.map((s) => [`${s.day}|${s.hour}`, s.status]));
   state.submissions = submissions.data;
   state.mySubmission = submissions.data.find((s) => s.player_id === state.player.id) || null;
+  state.weekEvents = weekEvents.data;
 
   renderAll();
 }
@@ -338,8 +473,10 @@ function renderAll() {
   $("#edit-panel").hidden = !state.editing;
   $("#brushes").hidden = !state.editing;
   $("#view-extras").hidden = state.editing;
-  $("#board-help").hidden = !state.editing;
-  $("#board-help").textContent = "Choisis ce que tu veux indiquer, puis clique sur les cases ou fais glisser pour en remplir plusieurs d'un coup. Recliquer sur une case la remet en « pas dispo ».";
+  $("#board-help").textContent = state.editing
+    ? "Choisis ce que tu veux indiquer, puis clique sur les cases ou fais glisser pour en remplir plusieurs d'un coup. Recliquer sur une case la remet en « pas dispo »."
+    : "Le chiffre indique les joueurs dispo, « +N » ceux pour qui c'est à éviter. Une case dorée : toute l'équipe est dispo. Un contour pointillé : toute l'équipe peut jouer si l'on compte les « à éviter ». Un point doré : un rendez-vous est prévu.";
+  $("#plan-slot-btn").hidden = true;
 
   renderMyStatus();
   renderBrushes();
@@ -373,19 +510,26 @@ function describeCounts({ dispo, maybe }) {
 }
 
 function renderMyStatus() {
+  const text = $("#my-status-text");
   const button = $("#edit-btn");
-  $("#board-actions").hidden = state.editing || isPastWeek();
-  button.textContent = state.mySubmission ? "Modifier mes dispos" : "Indiquer mes dispos";
-}
+  button.hidden = state.editing || isPastWeek();
 
-// Petit message qui s'affiche quelques secondes en bas de l'écran
-let toastTimer;
-function showToast(message) {
-  const toast = $("#toast");
-  toast.textContent = message;
-  toast.classList.add("is-visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3000);
+  if (state.flash) {
+    text.textContent = state.flash;
+    state.flash = null;
+  } else if (state.editing) {
+    text.textContent = "Tu modifies tes dispos pour cette semaine.";
+  } else if (isPastWeek()) {
+    text.textContent = "Cette semaine est terminée.";
+  } else if (state.mySubmission) {
+    text.textContent = state.savedSlots.size === 0
+      ? "Tu as indiqué que tu n'étais pas dispo cette semaine."
+      : `Tes dispos sont enregistrées : ${describeCounts(countByStatus(state.savedSlots))}.`;
+  } else {
+    text.textContent = "Tu n'as pas encore indiqué tes dispos pour cette semaine.";
+  }
+
+  button.textContent = state.mySubmission ? "Modifier mes dispos" : "Indiquer mes dispos";
 }
 
 function renderBrushes() {
@@ -397,6 +541,7 @@ function renderBrushes() {
 function renderBoard() {
   const total = teamSize();
   state.heatMap = new Map(state.heat.map((row) => [`${row.day}|${row.hour}`, row]));
+  state.eventMap = buildEventMap(state.weekEvents);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(state.weekStart, i));
   const todayIso = toISODate(new Date());
@@ -425,6 +570,7 @@ function renderBoard() {
       button.dataset.key = key;
       button.dataset.dayIndex = String(i);
       button.dataset.hour = String(hour);
+      if (state.eventMap.has(key)) button.classList.add("has-event");
       row.append(el("td", {}, button));
     });
 
@@ -438,6 +584,26 @@ function renderBoard() {
       ? "Touche une case pour voir qui est dispo."
       : "Personne n'a encore indiqué de dispo pour cette semaine.";
   }
+}
+
+// Associe chaque case "jour|heure" aux rendez-vous qui l'occupent.
+// Un rendez-vous de 20h à 22h occupe les cases 20h et 21h ;
+// sans heure de fin, seulement la case de début.
+function buildEventMap(events) {
+  const map = new Map();
+  for (const ev of events) {
+    const start = new Date(ev.starts_at);
+    const end = ev.ends_at ? new Date(ev.ends_at) : new Date(start.getTime() + 1);
+    const cursor = new Date(start);
+    cursor.setMinutes(0, 0, 0);
+    while (cursor < end) {
+      const key = `${toISODate(cursor)}|${cursor.getHours()}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(ev);
+      cursor.setHours(cursor.getHours() + 1);
+    }
+  }
+  return map;
 }
 
 // Case en mode consultation
@@ -501,14 +667,26 @@ function showSlot(cell) {
   const m = slot ? Number(slot.n_maybe) : 0;
 
   const when = `${JOURS_LONGS[dayIndex]} ${date.getDate()} à ${hour}h`;
+  let text;
   if (n === 0 && m === 0) {
-    $("#slot-detail").textContent = `Personne n'est dispo ${when}.`;
-    return;
+    text = `Personne n'est dispo ${when}.`;
+  } else {
+    text = `${when.charAt(0).toUpperCase() + when.slice(1)} : ${n} sur ${teamSize()} dispo`;
+    if (n) text += ` (${slot.pseudos.join(", ")})`;
+    if (m) text += `, à éviter pour ${slot.pseudos_maybe.join(", ")}`;
+    text += ".";
   }
-  let text = `${when.charAt(0).toUpperCase() + when.slice(1)} : ${n} sur ${teamSize()} dispo`;
-  if (n) text += ` (${slot.pseudos.join(", ")})`;
-  if (m) text += `, à éviter pour ${slot.pseudos_maybe.join(", ")}`;
-  $("#slot-detail").textContent = text + ".";
+
+  const events = state.eventMap.get(cell.dataset.key) || [];
+  if (events.length) {
+    text += " Prévu : " + events.map((ev) => ev.title + (ev.opponent ? ` contre ${ev.opponent}` : "")).join(", ") + ".";
+  }
+  $("#slot-detail").textContent = text;
+
+  // Raccourci admin : planifier directement sur ce créneau
+  const planBtn = $("#plan-slot-btn");
+  planBtn.hidden = !isAdmin() || isPastWeek() || events.length > 0;
+  planBtn.onclick = () => openEventDialog(null, { date, hour: Number(hour) });
 }
 
 function renderMissing() {
@@ -657,8 +835,8 @@ async function saveWeek() {
   }
 
   state.editing = false;
+  state.flash = "C'est enregistré, merci !";
   await loadBoard();
-  showToast("Disponibilités sauvegardées");
 }
 
 function changeWeek(delta) {
@@ -702,6 +880,13 @@ document.querySelectorAll(".brush").forEach((b) => {
     renderBrushes();
   });
 });
+
+// Rendez-vous (admins)
+$("#add-event-btn").addEventListener("click", () => openEventDialog());
+$("#event-form").addEventListener("submit", saveEvent);
+$("#ev-cancel").addEventListener("click", () => $("#event-dialog").close());
+$("#ev-delete").addEventListener("click", deleteEvent);
+$("#ev-type").addEventListener("change", updateTitlePlaceholder);
 
 // Prévient si on ferme l'onglet avec des modifications non enregistrées
 window.addEventListener("beforeunload", (e) => {

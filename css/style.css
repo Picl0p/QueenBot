@@ -4,47 +4,40 @@
    thème, il suffit (en général) de modifier ces variables.
 
    Répartition des rôles :
-     - violet   : les DONNÉES (intensité des dispos sur l'échiquier)
-     - dégradé  : ce qui est IMPORTANT (match officiel, bouton principal)
-                  → violet électrique vers rose
-     - rose pastel uni : créneau où toute l'équipe est dispo
-     - nacre    : titres et filets, comme le lettrage argenté du logo
-     - rose     : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
+     - violet : les DONNÉES (intensité des dispos sur l'échiquier)
+     - or     : ce qui est IMPORTANT (titres, meilleur créneau, dates)
+                → reprend la couronne et les ornements de la bannière
+     - rose   : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
    ===================================================================== */
 
 :root {
   /* Palette de la team */
-  --rose:     #E8C7DC;
-  --rose-vif: #D99AD0;
-  --lavande:  #C8A6E8;
-  --violet:   #A56CEB;
-  --nuit:     #120D24;
-  --ivoire:   #F5EEF7;
+  --rose:    #E8C7DC;
+  --lavande: #C8A6E8;
+  --violet:  #A56CEB;
+  --nuit:    #17142E;
+  --ivoire:  #F5EEF7;
 
-  /* Nacre : blanc argenté du logo et de la pièce de la reine */
-  --nacre:        #EDE4F8;
-  --nacre-filet:  rgb(222 208 245 / .35);
+  /* Accent or, tiré de la couronne et des cadres de la bannière */
+  --or:       #E3B65F;
+  --or-clair: #F2D48A;
 
-  /* Accent principal (celui du bouton "Modifier mes dispos") */
-  --violet-vif: #B585FF;   /* aussi le haut de l'échelle des dispos */
-  --grad:       linear-gradient(135deg, var(--violet-vif), var(--rose-vif));
+  /* Fonds : une nuit violette assez claire pour garder du contraste */
+  --fond:        #1C1832;
+  --fond-lueur:  #33275E;   /* halo derrière la bannière */
+  --surface:     #272243;   /* blocs */
+  --surface-2:   #332C57;   /* survol, champs, pastilles */
+  --bord:        #4A4077;
 
-  /* Fonds : nuit profonde comme la bannière, blocs nettement plus clairs
-     pour que les niveaux se détachent */
-  --fond:        #0C0919;
-  --fond-lueur:  #2B1854;   /* halo derrière la bannière */
-  --surface:     #1C1733;   /* blocs */
-  --surface-2:   #2A2249;   /* survol, champs, pastilles */
-  --bord:        #3F3570;
-
-  --texte:       #FAF6FD;
-  --texte-doux:  #C9BFDF;
+  --texte:       #F7F2FA;
+  --texte-doux:  #CBC3DE;
 
   /* Échiquier */
-  --case-sombre: #251E44;
-  --case-claire: #30285A;
-  --case-non:    #0A0716;   /* "pas dispo" */
-  --croix:       #6E6399;
+  --case-sombre: #2A2447;
+  --case-claire: #342E58;
+  --case-non:    #14112A;   /* "pas dispo" */
+  --croix:       #7D72A6;
+  --violet-vif:  #B585FF;   /* haut de l'échelle des dispos */
 
   --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -72,8 +65,7 @@ h1, h2 {
   font-weight: 700;
   line-height: 1.2;
   margin: 0 0 .75rem;
-  color: var(--nacre);
-  text-shadow: 0 0 18px rgb(165 108 235 / .45);
+  color: var(--or-clair);
 }
 h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
 h2 { font-size: 1.35rem; }
@@ -81,7 +73,7 @@ h2 { font-size: 1.35rem; }
 p { margin: 0 0 1rem; }
 
 :focus-visible {
-  outline: 2px solid var(--nacre);
+  outline: 2px solid var(--or-clair);
   outline-offset: 2px;
 }
 
@@ -140,7 +132,7 @@ main {
 }
 .avatar {
   border-radius: 50%;
-  border: 2px solid var(--lavande);
+  border: 2px solid var(--or);
 }
 .user-name { font-weight: 600; }
 
@@ -157,9 +149,8 @@ main {
   transition: background-color .15s, border-color .15s, color .15s, filter .15s;
 }
 .btn-primary {
-  background: var(--grad);
+  background: linear-gradient(135deg, var(--violet-vif), #D99AD0);
   color: var(--nuit);
-  box-shadow: 0 4px 16px rgb(181 133 255 / .3);
 }
 .btn-primary:hover { filter: brightness(1.1); }
 
@@ -182,7 +173,7 @@ main {
   font-size: 1.3rem;
   line-height: 1;
 }
-.btn-icon:hover { border-color: var(--lavande); background: var(--surface-2); }
+.btn-icon:hover { border-color: var(--or); color: var(--or-clair); }
 
 .btn:disabled { opacity: .6; cursor: wait; }
 
@@ -197,14 +188,8 @@ main {
   text-align: center;
   background: var(--surface);
   border: 1px solid var(--bord);
+  border-top: 2px solid var(--or);
   border-radius: 16px;
-}
-.state::before {
-  content: "";
-  position: absolute;
-  inset: -1px 1.5rem auto;
-  height: 2px;
-  background: var(--grad);
 }
 .state p { color: var(--texte-doux); }
 
@@ -217,7 +202,7 @@ main {
 }
 .id-row code {
   background: var(--fond);
-  color: var(--nacre);
+  color: var(--or-clair);
   padding: .4rem .7rem;
   border-radius: 8px;
   font-size: 1rem;
@@ -273,9 +258,8 @@ main {
   border: 2px solid var(--lavande);
 }
 .event.type-match_officiel::before {
-  background: var(--grad) border-box;
-  border-color: transparent;
-  box-shadow: 0 0 10px rgb(217 154 208 / .6);
+  background: var(--or);
+  border-color: var(--or);
 }
 .event-empty { color: var(--texte-doux); }
 .event-empty::before { border-color: var(--bord); }
@@ -283,7 +267,7 @@ main {
 .event-date {
   display: block;
   font-weight: 700;
-  color: var(--lavande);
+  color: var(--or-clair);
 }
 .event-date::first-letter { text-transform: uppercase; }
 .event-time { color: var(--texte-doux); font-size: .9rem; }
@@ -307,8 +291,8 @@ main {
   color: var(--lavande);
 }
 .type-match_officiel .event-type {
-  background: rgb(217 154 208 / .2);
-  color: var(--rose);
+  background: rgb(227 182 95 / .18);
+  color: var(--or-clair);
 }
 .event-opponent { color: var(--texte-doux); }
 .event-notes {
@@ -341,11 +325,20 @@ main {
   font-weight: 600;
 }
 
-.board-actions {
+.my-status {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
   margin: .75rem 0 1rem;
+  padding: .75rem 1rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--bord);
+  border-left: 3px solid var(--or);
 }
+.my-status p { margin: 0; font-weight: 500; }
 
 .board-help {
   color: var(--texte-doux);
@@ -356,18 +349,17 @@ main {
 
 /* ---------- Échiquier : le plateau ---------- */
 
-/* Double filet nacré et halo violet, en écho aux cadres de la bannière */
+/* Double filet doré, en écho aux cadres de la bannière */
 .board-frame {
   overflow-x: auto;
   padding: .75rem;
   background: var(--surface);
-  border: 1px solid var(--nacre-filet);
+  border: 1px solid rgb(227 182 95 / .55);
   border-radius: 14px;
   box-shadow:
     inset 0 0 0 4px var(--surface),
-    inset 0 0 0 5px rgb(222 208 245 / .12),
-    0 0 40px rgb(165 108 235 / .15),
-    0 10px 30px rgb(0 0 0 / .4);
+    inset 0 0 0 5px rgb(227 182 95 / .25),
+    0 10px 30px rgb(0 0 0 / .25);
 }
 
 .board {
@@ -384,7 +376,7 @@ main {
 }
 .board thead th { padding-bottom: .3rem; }
 .board thead th:first-child { width: 2.6rem; }
-.board thead th.today .day-num { color: var(--rose-vif); }
+.board thead th.today .day-num { color: var(--or-clair); }
 .day-name, .day-num { display: block; }
 .day-num {
   font-family: var(--font-titre);
@@ -414,15 +406,14 @@ main {
 }
 .sq-light { --base: var(--case-claire); }
 
-/* Toute l'équipe est dispo : rose pastel uni, doux mais bien distinct
-   de l'échelle violette */
+/* Toute l'équipe est dispo : or, comme la couronne */
 .sq.is-full {
-  background: var(--rose);
+  background: var(--or);
   color: var(--nuit);
 }
 /* Jouable en comptant les "à éviter" */
 .sq.is-possible {
-  outline: 2px dashed var(--rose-vif);
+  outline: 2px dashed var(--or);
   outline-offset: -4px;
 }
 .sq-maybe {
@@ -443,7 +434,7 @@ main {
 }
 
 .sq:hover { box-shadow: 0 0 0 2px var(--lavande); }
-.sq[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--nacre); }
+.sq[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--or-clair); }
 
 .slot-detail {
   margin: .9rem 0 .3rem;
@@ -577,7 +568,7 @@ main {
 }
 .comments li {
   padding-left: .8rem;
-  background: linear-gradient(to bottom, var(--violet-vif), var(--rose-vif)) left / 2px 100% no-repeat;
+  border-left: 2px solid var(--or);
 }
 .comment-author {
   font-weight: 700;
@@ -588,35 +579,101 @@ main {
 .comment-text { color: var(--texte-doux); }
 
 
-/* ---------- Message temporaire ---------- */
+/* ---------- Planification (admins) ---------- */
 
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 1.5rem;
-  z-index: 10;
-  padding: .7rem 1.2rem;
-  border-radius: 999px;
-  background:
-    linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
-    var(--grad) border-box;
-  border: 1px solid transparent;
+.events-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: .75rem;
+}
+.events-head h2 { margin: 0; }
+
+.event-edit {
+  margin-top: .5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lavande);
+  font: 600 .85rem var(--font-texte);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.event-edit:hover { color: var(--or-clair); }
+
+.plan-slot-btn { margin-bottom: .75rem; }
+
+/* Point doré dans le coin des cases où un rendez-vous est prévu */
+.sq.has-event { position: relative; }
+.sq.has-event::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--or-clair);
+}
+.sq.is-full.has-event::before { background: var(--nuit); }
+
+.btn-danger {
+  margin-left: auto;
+  color: var(--rose);
+  border-color: rgb(232 199 220 / .35);
+}
+.btn-danger:hover { color: #fff; border-color: var(--rose); }
+
+/* Fenêtre modale */
+.event-dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  padding: 1.5rem;
+  border: 1px solid var(--bord);
+  border-top: 2px solid var(--or);
+  border-radius: 16px;
+  background: var(--surface);
   color: var(--texte);
+}
+.event-dialog::backdrop {
+  background: rgb(12 10 24 / .7);
+  backdrop-filter: blur(2px);
+}
+.event-dialog h2 { margin-bottom: 1.25rem; }
+
+.field { margin-bottom: 1rem; }
+.field label {
+  display: block;
   font-weight: 600;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .45);
-  opacity: 0;
-  transform: translate(-50%, 1rem);
-  pointer-events: none;
-  transition: opacity .25s, transform .25s;
+  font-size: .9rem;
+  margin-bottom: .35rem;
 }
-.toast::before {
-  content: "✓";
-  margin-right: .5rem;
-  color: var(--rose-vif);
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  padding: .55rem .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--fond);
+  color: var(--texte);
+  font: inherit;
 }
-.toast.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
+.field textarea { resize: vertical; }
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible { border-color: var(--lavande); }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: .75rem;
+}
+@media (max-width: 520px) {
+  .form-row { grid-template-columns: 1fr 1fr; }
+  .form-row .field:first-child { grid-column: 1 / -1; }
 }
 
 
