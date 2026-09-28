@@ -69,13 +69,11 @@
           </div>
         </div>
 
-        <!-- Où j'en suis pour cette semaine -->
-        <div class="my-status">
-          <p id="my-status-text"></p>
+        <div id="board-actions" class="board-actions">
           <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
         </div>
 
-        <p id="board-help" class="board-help"></p>
+        <p id="board-help" class="board-help" hidden></p>
 
         <!-- Choix du "pinceau" pendant la saisie -->
         <div id="brushes" class="brushes" role="radiogroup" aria-label="Ce que tu coches" hidden>
@@ -123,6 +121,9 @@
 
     <p id="error" class="error" role="alert" hidden></p>
   </main>
+
+  <!-- Message temporaire (ex. après enregistrement) -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <!-- Formulaire des rendez-vous (admins) : fenêtre modale native -->
   <dialog id="event-dialog" class="event-dialog" aria-labelledby="event-dialog-title">

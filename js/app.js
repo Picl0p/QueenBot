@@ -119,7 +119,6 @@ const state = {
   mySlots: new Map(),    // mes créneaux pendant la saisie (copie de travail)
   editing: false,        // mode saisie actif ?
   brush: "dispo",        // statut appliqué en cliquant : dispo, a_eviter, pas_dispo
-  flash: null,           // message à afficher une fois (ex. après enregistrement)
 
   // Rendez-vous
   weekEvents: [],        // rendez-vous de la semaine affichée
@@ -473,9 +472,8 @@ function renderAll() {
   $("#edit-panel").hidden = !state.editing;
   $("#brushes").hidden = !state.editing;
   $("#view-extras").hidden = state.editing;
-  $("#board-help").textContent = state.editing
-    ? "Choisis ce que tu veux indiquer, puis clique sur les cases ou fais glisser pour en remplir plusieurs d'un coup. Recliquer sur une case la remet en « pas dispo »."
-    : "Le chiffre indique les joueurs dispo, « +N » ceux pour qui c'est à éviter. Une case dorée : toute l'équipe est dispo. Un contour pointillé : toute l'équipe peut jouer si l'on compte les « à éviter ». Un point doré : un rendez-vous est prévu.";
+  $("#board-help").hidden = !state.editing;
+  $("#board-help").textContent = "Choisis ce que tu veux indiquer, puis clique sur les cases ou fais glisser pour en remplir plusieurs d'un coup. Recliquer sur une case la remet en « pas dispo ».";
   $("#plan-slot-btn").hidden = true;
 
   renderMyStatus();
@@ -510,26 +508,19 @@ function describeCounts({ dispo, maybe }) {
 }
 
 function renderMyStatus() {
-  const text = $("#my-status-text");
   const button = $("#edit-btn");
-  button.hidden = state.editing || isPastWeek();
-
-  if (state.flash) {
-    text.textContent = state.flash;
-    state.flash = null;
-  } else if (state.editing) {
-    text.textContent = "Tu modifies tes dispos pour cette semaine.";
-  } else if (isPastWeek()) {
-    text.textContent = "Cette semaine est terminée.";
-  } else if (state.mySubmission) {
-    text.textContent = state.savedSlots.size === 0
-      ? "Tu as indiqué que tu n'étais pas dispo cette semaine."
-      : `Tes dispos sont enregistrées : ${describeCounts(countByStatus(state.savedSlots))}.`;
-  } else {
-    text.textContent = "Tu n'as pas encore indiqué tes dispos pour cette semaine.";
-  }
-
+  $("#board-actions").hidden = state.editing || isPastWeek();
   button.textContent = state.mySubmission ? "Modifier mes dispos" : "Indiquer mes dispos";
+}
+
+// Petit message qui s'affiche quelques secondes en bas de l'écran
+let toastTimer;
+function showToast(message) {
+  const toast = $("#toast");
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3000);
 }
 
 function renderBrushes() {
@@ -835,8 +826,8 @@ async function saveWeek() {
   }
 
   state.editing = false;
-  state.flash = "C'est enregistré, merci !";
   await loadBoard();
+  showToast("Disponibilités sauvegardées");
 }
 
 function changeWeek(delta) {
