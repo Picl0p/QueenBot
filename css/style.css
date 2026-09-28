@@ -1,0 +1,633 @@
+/* =====================================================================
+   Thème Queen's Gambit
+   Toutes les couleurs sont centralisées dans :root. Pour ajuster le
+   thème, il suffit (en général) de modifier ces variables.
+
+   Répartition des rôles :
+     - violet   : les DONNÉES (intensité des dispos sur l'échiquier)
+     - dégradé  : ce qui est IMPORTANT (match officiel, bouton principal)
+                  → violet électrique vers rose
+     - rose pastel uni : créneau où toute l'équipe est dispo
+     - nacre    : titres et filets, comme le lettrage argenté du logo
+     - rose     : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
+   ===================================================================== */
+
+:root {
+  /* Palette de la team */
+  --rose:     #E8C7DC;
+  --rose-vif: #D99AD0;
+  --lavande:  #C8A6E8;
+  --violet:   #A56CEB;
+  --nuit:     #120D24;
+  --ivoire:   #F5EEF7;
+
+  /* Nacre : blanc argenté du logo et de la pièce de la reine */
+  --nacre:        #EDE4F8;
+  --nacre-filet:  rgb(222 208 245 / .35);
+
+  /* Accent principal (celui du bouton "Modifier mes dispos") */
+  --violet-vif: #B585FF;   /* aussi le haut de l'échelle des dispos */
+  --grad:       linear-gradient(135deg, var(--violet-vif), var(--rose-vif));
+
+  /* Fonds : nuit profonde comme la bannière, blocs nettement plus clairs
+     pour que les niveaux se détachent */
+  --fond:        #0C0919;
+  --fond-lueur:  #2B1854;   /* halo derrière la bannière */
+  --surface:     #1C1733;   /* blocs */
+  --surface-2:   #2A2249;   /* survol, champs, pastilles */
+  --bord:        #3F3570;
+
+  --texte:       #FAF6FD;
+  --texte-doux:  #C9BFDF;
+
+  /* Échiquier */
+  --case-sombre: #251E44;
+  --case-claire: #30285A;
+  --case-non:    #0A0716;   /* "pas dispo" */
+  --croix:       #6E6399;
+
+  --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
+  --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { color-scheme: dark; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--texte);
+  font: 400 1rem/1.55 var(--font-texte);
+  background:
+    radial-gradient(ellipse 90% 45% at 50% 0%, var(--fond-lueur), transparent 70%),
+    var(--fond);
+  background-attachment: fixed;
+}
+
+[hidden] { display: none !important; }
+
+h1, h2 {
+  font-family: var(--font-titre);
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 .75rem;
+  color: var(--nacre);
+  text-shadow: 0 0 18px rgb(165 108 235 / .45);
+}
+h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
+h2 { font-size: 1.35rem; }
+
+p { margin: 0 0 1rem; }
+
+:focus-visible {
+  outline: 2px solid var(--nacre);
+  outline-offset: 2px;
+}
+
+
+/* ---------- Bannière ----------
+   Proportions d'origine (pas de recadrage), hauteur limitée à 55 % de
+   l'écran pour que l'échiquier reste visible. Sur grand écran, les bords
+   se fondent dans le fond. */
+
+.hero {
+  --hauteur-max: 55vh;
+  position: relative;
+  width: min(100%, 1983px, calc(var(--hauteur-max) * 1983 / 793));
+  margin: 0 auto;
+  aspect-ratio: 1983 / 793;
+  overflow: hidden;
+}
+.hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+@media (min-aspect-ratio: 11/8) {
+  .hero img {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  }
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 30%;
+  background: linear-gradient(to bottom, transparent, var(--fond));
+}
+
+
+/* ---------- Mise en page ---------- */
+
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 2.5rem) 4rem;
+}
+
+
+/* ---------- Compte (sous la bannière) ---------- */
+
+.user-zone {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: .6rem;
+  margin: .75rem 0 1.5rem;
+}
+.avatar {
+  border-radius: 50%;
+  border: 2px solid var(--lavande);
+}
+.user-name { font-weight: 600; }
+
+
+/* ---------- Boutons ---------- */
+
+.btn {
+  white-space: nowrap;
+  font: 600 .95rem var(--font-texte);
+  border-radius: 10px;
+  padding: .6rem 1.1rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color .15s, border-color .15s, color .15s, filter .15s;
+}
+.btn-primary {
+  background: var(--grad);
+  color: var(--nuit);
+  box-shadow: 0 4px 16px rgb(181 133 255 / .3);
+}
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--texte-doux);
+  border-color: var(--bord);
+  padding: .4rem .8rem;
+  font-size: .85rem;
+}
+.btn-ghost:hover { color: var(--texte); border-color: var(--lavande); }
+
+.btn-icon {
+  background: var(--surface);
+  color: var(--texte);
+  border-color: var(--bord);
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.btn-icon:hover { border-color: var(--lavande); background: var(--surface-2); }
+
+.btn:disabled { opacity: .6; cursor: wait; }
+
+
+/* ---------- États : chargement, connexion, accès refusé ---------- */
+
+.state {
+  position: relative;
+  max-width: 32rem;
+  margin: -1.5rem auto 3rem;
+  padding: 2rem;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--bord);
+  border-radius: 16px;
+}
+.state::before {
+  content: "";
+  position: absolute;
+  inset: -1px 1.5rem auto;
+  height: 2px;
+  background: var(--grad);
+}
+.state p { color: var(--texte-doux); }
+
+.id-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: 1.25rem;
+}
+.id-row code {
+  background: var(--fond);
+  color: var(--nacre);
+  padding: .4rem .7rem;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.error {
+  max-width: 40rem;
+  margin: 1rem auto;
+  padding: .8rem 1rem;
+  border-left: 3px solid var(--rose);
+  background: var(--surface);
+  color: var(--rose);
+}
+
+
+/* ---------- Tableau de bord ---------- */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .dashboard { grid-template-columns: minmax(0, 1fr); }
+  .board-panel { order: -1; }
+}
+
+
+/* ---------- Rendez-vous : frise chronologique ---------- */
+
+.events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--bord);
+}
+
+.event {
+  position: relative;
+  padding: 0 0 1.5rem 1.25rem;
+}
+.event::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: .3rem;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--fond);
+  border: 2px solid var(--lavande);
+}
+.event.type-match_officiel::before {
+  background: var(--grad) border-box;
+  border-color: transparent;
+  box-shadow: 0 0 10px rgb(217 154 208 / .6);
+}
+.event-empty { color: var(--texte-doux); }
+.event-empty::before { border-color: var(--bord); }
+
+.event-date {
+  display: block;
+  font-weight: 700;
+  color: var(--lavande);
+}
+.event-date::first-letter { text-transform: uppercase; }
+.event-time { color: var(--texte-doux); font-size: .9rem; }
+.event-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: .25rem 0 .35rem;
+}
+.event-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+  margin: 0;
+  font-size: .85rem;
+}
+.event-type {
+  padding: .1rem .55rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--lavande);
+}
+.type-match_officiel .event-type {
+  background: rgb(217 154 208 / .2);
+  color: var(--rose);
+}
+.event-opponent { color: var(--texte-doux); }
+.event-notes {
+  margin: .5rem 0 0;
+  font-size: .9rem;
+  color: var(--texte-doux);
+}
+
+
+/* ---------- Échiquier : en-tête et statut ---------- */
+
+.board-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem 1.5rem;
+  margin-bottom: .5rem;
+}
+.board-head h2 { margin: 0; }
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+.week-label {
+  min-width: 11rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.board-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: .75rem 0 1rem;
+}
+
+.board-help {
+  color: var(--texte-doux);
+  font-size: .9rem;
+  max-width: 60ch;
+}
+
+
+/* ---------- Échiquier : le plateau ---------- */
+
+/* Double filet nacré et halo violet, en écho aux cadres de la bannière */
+.board-frame {
+  overflow-x: auto;
+  padding: .75rem;
+  background: var(--surface);
+  border: 1px solid var(--nacre-filet);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 0 0 4px var(--surface),
+    inset 0 0 0 5px rgb(222 208 245 / .12),
+    0 0 40px rgb(165 108 235 / .15),
+    0 10px 30px rgb(0 0 0 / .4);
+}
+
+.board {
+  width: 100%;
+  min-width: 21rem;
+  table-layout: fixed;            /* colonnes de largeur égale */
+  border-collapse: separate;
+  border-spacing: 3px;
+}
+.board th {
+  font-weight: 500;
+  font-size: .8rem;
+  color: var(--texte-doux);
+}
+.board thead th { padding-bottom: .3rem; }
+.board thead th:first-child { width: 2.6rem; }
+.board thead th.today .day-num { color: var(--rose-vif); }
+.day-name, .day-num { display: block; }
+.day-num {
+  font-family: var(--font-titre);
+  font-size: 1.05rem;
+  color: var(--texte);
+}
+.board tbody th {
+  text-align: right;
+  padding-right: .4rem;
+  white-space: nowrap;
+}
+
+.sq {
+  --base: var(--case-sombre);
+  --fill: 0;
+  display: block;
+  width: 100%;
+  min-height: 2.2rem;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  font: 700 .9rem var(--font-texte);
+  color: #fff;
+  background: var(--base);
+  background: color-mix(in oklab, var(--violet-vif) calc(var(--fill) * 100%), var(--base));
+  transition: box-shadow .15s;
+}
+.sq-light { --base: var(--case-claire); }
+
+/* Toute l'équipe est dispo : rose pastel uni, doux mais bien distinct
+   de l'échelle violette */
+.sq.is-full {
+  background: var(--rose);
+  color: var(--nuit);
+}
+/* Jouable en comptant les "à éviter" */
+.sq.is-possible {
+  outline: 2px dashed var(--rose-vif);
+  outline-offset: -4px;
+}
+.sq-maybe {
+  margin-left: .2rem;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--rose);
+}
+.sq.is-full .sq-maybe { color: var(--nuit); }
+
+/* Pas dispo : case plus sombre que le fond, avec une croix */
+.sq.is-no,
+.swatch-no {
+  background: var(--case-non);
+  color: var(--croix);
+  font-weight: 400;
+  box-shadow: inset 0 0 0 1px rgb(125 114 166 / .3);
+}
+
+.sq:hover { box-shadow: 0 0 0 2px var(--lavande); }
+.sq[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--nacre); }
+
+.slot-detail {
+  margin: .9rem 0 .3rem;
+  min-height: 1.55em;
+}
+.missing {
+  color: var(--texte-doux);
+  font-size: .9rem;
+}
+
+
+/* ---------- Mode saisie ---------- */
+
+.board-panel.is-editing .board-frame {
+  border-color: var(--rose);
+  box-shadow:
+    inset 0 0 0 4px var(--surface),
+    inset 0 0 0 5px rgb(232 199 220 / .4),
+    0 10px 30px rgb(0 0 0 / .25);
+}
+.board-panel.is-editing .sq {
+  touch-action: none;       /* le glisser au doigt coche au lieu de faire défiler */
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sq.is-mine,
+.swatch-dispo {
+  background: var(--lavande);
+  color: var(--nuit);
+}
+/* "À éviter" : rayures, lisibles sans se fier à la couleur */
+.sq.is-maybe,
+.swatch-maybe {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(232 199 220 / .7) 0 5px,
+    rgb(232 199 220 / .3) 5px 10px
+  );
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / .7);
+}
+
+.brushes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .9rem;
+}
+.brush {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .4rem .85rem .4rem .45rem;
+  border-radius: 999px;
+  border: 1px solid var(--bord);
+  background: var(--surface);
+  color: var(--texte-doux);
+  font: 600 .9rem var(--font-texte);
+  cursor: pointer;
+}
+.brush:hover { border-color: var(--lavande); color: var(--texte); }
+.brush[aria-checked="true"] {
+  border-color: var(--rose);
+  background: var(--surface-2);
+  color: var(--texte);
+}
+.swatch {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.3rem;
+  border-radius: 4px;
+  font-size: .8rem;
+}
+
+.edit-panel { margin-top: 1rem; }
+
+.edit-count {
+  margin-bottom: 1rem;
+  color: var(--texte-doux);
+}
+
+.edit-panel label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: .4rem;
+}
+.optional { font-weight: 400; color: var(--texte-doux); }
+
+.edit-panel textarea {
+  width: 100%;
+  max-width: 40rem;
+  padding: .6rem .8rem;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--surface);
+  color: var(--texte);
+  font: inherit;
+  resize: vertical;
+}
+.edit-panel textarea:focus-visible { border-color: var(--lavande); }
+
+.edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: 1rem;
+}
+
+.edit-error {
+  margin-top: 1rem;
+  color: var(--rose);
+}
+
+
+/* ---------- Précisions de la team ---------- */
+
+.comments-title {
+  font-family: var(--font-texte);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texte);
+  margin: 1.5rem 0 .5rem;
+}
+.comments {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .5rem;
+}
+.comments li {
+  padding-left: .8rem;
+  background: linear-gradient(to bottom, var(--violet-vif), var(--rose-vif)) left / 2px 100% no-repeat;
+}
+.comment-author {
+  font-weight: 700;
+  color: var(--rose);
+  margin-right: .5rem;
+}
+.comment-author::after { content: " :"; }
+.comment-text { color: var(--texte-doux); }
+
+
+/* ---------- Message temporaire ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  z-index: 10;
+  padding: .7rem 1.2rem;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+    var(--grad) border-box;
+  border: 1px solid transparent;
+  color: var(--texte);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .45);
+  opacity: 0;
+  transform: translate(-50%, 1rem);
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+.toast::before {
+  content: "✓";
+  margin-right: .5rem;
+  color: var(--rose-vif);
+}
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+
+/* Petits écrans : placé en fin de fichier pour passer après les règles générales */
+@media (max-width: 520px) {
+  .board-frame { padding: .4rem; }
+  .board { border-spacing: 2px; }
+  .sq { font-size: .8rem; min-height: 1.9rem; }
+  .sq-maybe { margin-left: .05rem; }
+}

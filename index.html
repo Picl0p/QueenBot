@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Queen's Gambit</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- Polices : Cinzel (titres, écho à la bannière) + Figtree (texte) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <img src="assets/banniere.webp" alt="Bannière de la team Queen's Gambit" width="1983" height="793">
+  </div>
+
+  <main>
+    <!-- Compte : visible une fois connecté -->
+    <div id="user-zone" class="user-zone" hidden>
+      <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+      <span id="user-name" class="user-name"></span>
+      <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+    </div>
+    <!-- Un seul de ces blocs est visible à la fois (géré par app.js) -->
+
+    <section id="view-loading" class="state">
+      <p>Chargement…</p>
+    </section>
+
+    <section id="view-login" class="state" hidden>
+      <h1>Espace de la team</h1>
+      <p>Connecte-toi avec ton compte Discord pour voir le planning et les dispos de chacun.</p>
+      <button id="login-btn" class="btn btn-primary" type="button">Se connecter avec Discord</button>
+    </section>
+
+    <section id="view-denied" class="state" hidden>
+      <h1>Accès réservé à la team</h1>
+      <p>Ton compte Discord n'est pas encore dans la liste des membres. Envoie cet identifiant à un admin pour qu'il t'ajoute :</p>
+      <div class="id-row">
+        <code id="denied-discord-id"></code>
+        <button id="copy-id-btn" class="btn btn-ghost" type="button">Copier</button>
+      </div>
+      <button id="denied-logout-btn" class="btn btn-ghost" type="button">Changer de compte</button>
+    </section>
+
+    <div id="view-app" class="dashboard" hidden>
+
+      <section class="events" aria-labelledby="events-title">
+        <h2 id="events-title">Prochains rendez-vous</h2>
+        <ol id="events-list" class="events-list"></ol>
+      </section>
+
+      <section id="board-panel" class="board-panel" aria-labelledby="board-title">
+        <div class="board-head">
+          <h2 id="board-title">Échiquier de la semaine</h2>
+          <div class="week-nav">
+            <button id="prev-week" class="btn btn-icon" type="button" aria-label="Semaine précédente">‹</button>
+            <span id="week-label" class="week-label"></span>
+            <button id="next-week" class="btn btn-icon" type="button" aria-label="Semaine suivante">›</button>
+          </div>
+        </div>
+
+        <div id="board-actions" class="board-actions">
+          <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
+        </div>
+
+        <p id="board-help" class="board-help" hidden></p>
+
+        <!-- Choix du "pinceau" pendant la saisie -->
+        <div id="brushes" class="brushes" role="radiogroup" aria-label="Ce que tu coches" hidden>
+          <button type="button" class="brush" role="radio" data-brush="dispo" aria-checked="true">
+            <span class="swatch swatch-dispo" aria-hidden="true">✓</span>Dispo
+          </button>
+          <button type="button" class="brush" role="radio" data-brush="a_eviter" aria-checked="false">
+            <span class="swatch swatch-maybe" aria-hidden="true">!</span>À éviter
+          </button>
+          <button type="button" class="brush" role="radio" data-brush="pas_dispo" aria-checked="false">
+            <span class="swatch swatch-no" aria-hidden="true">✕</span>Pas dispo
+          </button>
+        </div>
+
+        <div class="board-frame">
+          <table id="board" class="board"></table>
+        </div>
+
+        <!-- Visible uniquement pendant la saisie -->
+        <div id="edit-panel" class="edit-panel" hidden>
+          <p id="edit-count" class="edit-count" aria-live="polite"></p>
+          <label for="week-comment">Une précision pour la team ? <span class="optional">(facultatif)</span></label>
+          <textarea id="week-comment" rows="2" maxlength="280" placeholder="Ex. : mardi, dispo seulement après 21h30"></textarea>
+          <div class="edit-actions">
+            <button id="save-btn" class="btn btn-primary" type="button">Enregistrer ma semaine</button>
+            <button id="cancel-btn" class="btn btn-ghost" type="button">Annuler</button>
+            <button id="clear-btn" class="btn btn-ghost" type="button">Tout décocher</button>
+          </div>
+          <p id="edit-error" class="edit-error" role="alert" hidden></p>
+        </div>
+
+        <!-- Visible hors saisie -->
+        <div id="view-extras">
+          <p id="slot-detail" class="slot-detail" aria-live="polite"></p>
+          <p id="missing" class="missing"></p>
+          <div id="comments-block" hidden>
+            <h3 class="comments-title">Précisions de la team</h3>
+            <ul id="comments" class="comments"></ul>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <!-- Message temporaire (ex. après enregistrement) -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Librairie Supabase (expose l'objet global `supabase`) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
