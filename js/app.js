@@ -257,7 +257,7 @@ function toHHMM(d) {
 }
 
 async function loadPlayers() {
-  const { data, error } = await db.from("players").select("id, pseudo, status").order("pseudo");
+  const { data, error } = await db.from("players").select("id, pseudo, status, main_role").order("pseudo");
   if (error) return showError(`Impossible de charger les joueurs : ${error.message}`);
   state.players = data;
 }
@@ -504,6 +504,7 @@ function renderAll() {
     renderMissing();
     renderComments();
   }
+  renderBestSlots();
 }
 
 // Deux versions du libellé : la courte ("29 sept.") remplace la longue sur
@@ -718,6 +719,121 @@ function renderMissing() {
     : `Pas encore répondu : ${state.missing.map((p) => p.pseudo).join(", ")}.`;
 }
 
+// --- Meilleurs créneaux de la semaine ---
+
+const ROLE_LABELS = { top: "top", jungle: "jungle", mid: "mid", adc: "ADC", support: "support" };
+const BEST_MIN_SLOTS = 4;   // durée minimale d'un créneau : 4 demi-heures = 2h
+
+// Cherche les plages d'au moins 2h où tous les TITULAIRES sont dispo, ou bien
+// où il ne manque qu'UN seul et même titulaire du début à la fin (on sait alors
+// quel rôle remplacer). Les créneaux déjà passés sont ignorés.
+// Renvoie au plus `count` plages qui ne se chevauchent pas, triées :
+// d'abord "tout le monde", puis les plus longues, puis les plus tôt.
+function findBestSlots(heatMap, players, weekStart, now, count = 2) {
+  // Seuls les titulaires comptent (ni remplaçants ni coachs)
+  const team = players.filter((p) => p.status === "titulaire");
+  const total = team.length;
+  if (total === 0) return [];
+  const teamPseudos = new Set(team.map((p) => p.pseudo));
+  const slots = boardSlots();
+  const candidates = [];
+
+  for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+    const date = addDays(weekStart, dayIndex);
+    const day = toISODate(date);
+
+    // Titulaires "dispo" sur chaque demi-heure de la journée
+    const present = slots.map(({ hour, minute }) => {
+      const start = new Date(date);
+      start.setHours(hour, minute, 0, 0);
+      if (start < now) return new Set();
+      const row = heatMap.get(slotKey(day, hour, minute));
+      return new Set((row?.pseudos || []).filter((p) => teamPseudos.has(p)));
+    });
+
+    // Deux exigences : tous les titulaires, puis tous sauf un
+    const needs = total > 1 ? [total, total - 1] : [total];
+    for (const need of needs) {
+      for (let i = 0; i < slots.length; i++) {
+        // On prolonge la plage tant que les MÊMES joueurs restent dispo
+        let common = present[i];
+        if (common.size < need) continue;
+        let j = i;
+        while (j + 1 < slots.length) {
+          const next = new Set([...common].filter((p) => present[j + 1].has(p)));
+          if (next.size < need) break;
+          common = next;
+          j++;
+        }
+        if (j - i + 1 < BEST_MIN_SLOTS) continue;
+        candidates.push({
+          dayIndex, date, first: i, last: j,
+          full: common.size === total,
+          missing: team.filter((p) => !common.has(p.pseudo)),
+        });
+      }
+    }
+  }
+
+  candidates.sort((a, b) =>
+    (b.full - a.full) ||
+    ((b.last - b.first) - (a.last - a.first)) ||
+    (a.dayIndex - b.dayIndex) ||
+    (a.first - b.first)
+  );
+
+  const best = [];
+  for (const c of candidates) {
+    const overlaps = best.some((b) => b.dayIndex === c.dayIndex && c.first <= b.last && b.first <= c.last);
+    if (!overlaps) best.push(c);
+    if (best.length === count) break;
+  }
+  return best.map((c) => ({
+    ...c,
+    start: slots[c.first],
+    // Fin = début de la dernière demi-heure + 30 min
+    end: slots[c.last].minute
+      ? { hour: (slots[c.last].hour + 1) % 24, minute: 0 }
+      : { hour: slots[c.last].hour, minute: 30 },
+  }));
+}
+
+function renderBestSlots() {
+  const box = $("#best-slots");
+  box.hidden = state.editing || isPastWeek();
+  if (box.hidden) return;
+
+  const best = findBestSlots(state.heatMap, state.players, state.weekStart, new Date());
+  const list = $("#best-slots-list");
+
+  if (best.length === 0) {
+    list.replaceChildren(el("li", {
+      class: "best-slot-empty",
+      text: "Pas encore de créneau d'au moins 2h où tous les titulaires (ou presque) sont dispo.",
+    }));
+    return;
+  }
+
+  list.replaceChildren(...best.map((b) => {
+    const dayName = JOURS_LONGS[b.dayIndex];
+    const when = `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${b.date.getDate()} · `
+      + `${slotLabel(b.start.hour, b.start.minute)} – ${slotLabel(b.end.hour, b.end.minute)}`;
+
+    let tag;
+    if (b.full) {
+      tag = el("span", { class: "best-tag is-full", text: "Tout le monde est là" });
+    } else {
+      const absent = b.missing[0];
+      const role = ROLE_LABELS[absent.main_role];
+      tag = el("span", {
+        class: "best-tag is-sub",
+        text: `Prévoir un sub${role ? ` ${role}` : ""} (sans ${absent.pseudo})`,
+      });
+    }
+    return el("li", { class: "best-slot" }, el("span", { class: "best-when", text: when }), tag);
+  }));
+}
+
 function renderComments() {
   const withComment = state.submissions.filter((s) => s.comment);
   $("#comments-block").hidden = withComment.length === 0;
@@ -829,6 +945,40 @@ function onBoardClick(e) {
   }
 }
 
+// Recopie mes dispos de la semaine précédente (mêmes jours, mêmes horaires)
+// dans la saisie en cours. Rien n'est enregistré tant qu'on ne valide pas.
+async function copyLastWeek() {
+  const button = $("#copy-last-week-btn");
+  const box = $("#edit-error");
+  box.hidden = true;
+  button.disabled = true;
+
+  const prevStart = addDays(state.weekStart, -7);
+  const { data, error } = await db.from("availabilities")
+    .select("day, hour, minute, status")
+    .eq("player_id", state.player.id)
+    .gte("day", toISODate(prevStart))
+    .lt("day", toISODate(state.weekStart));
+
+  button.disabled = false;
+  if (error || data.length === 0) {
+    box.textContent = error
+      ? `Impossible de récupérer la semaine dernière : ${error.message}`
+      : "Rien à reprendre : tu n'avais rien coché la semaine dernière.";
+    box.hidden = false;
+    return;
+  }
+
+  // "2026-09-21|20|30" → "2026-09-28|20|30" (même créneau, 7 jours plus tard)
+  state.mySlots = new Map(data.map((s) => {
+    const day = toISODate(addDays(new Date(`${s.day}T00:00`), 7));
+    return [slotKey(day, s.hour, s.minute), s.status];
+  }));
+  document.querySelectorAll("#board .sq").forEach(refreshCell);
+  renderEditCount();
+  showToast("Semaine dernière reprise : ajuste si besoin, puis enregistre");
+}
+
 async function saveWeek() {
   const button = $("#save-btn");
   button.disabled = true;
@@ -892,6 +1042,7 @@ document.addEventListener("pointercancel", () => { paint.active = false; });
 $("#edit-btn").addEventListener("click", enterEdit);
 $("#save-btn").addEventListener("click", saveWeek);
 $("#cancel-btn").addEventListener("click", () => { if (confirmLeaveEdit()) exitEdit(); });
+$("#copy-last-week-btn").addEventListener("click", copyLastWeek);
 $("#clear-btn").addEventListener("click", () => {
   state.mySlots.clear();
   document.querySelectorAll("#board .sq").forEach(refreshCell);

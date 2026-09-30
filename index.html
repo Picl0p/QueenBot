@@ -72,6 +72,12 @@
           <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
         </div>
 
+        <!-- Les deux meilleurs créneaux de la semaine (hors saisie) -->
+        <div id="best-slots" class="best-slots" hidden>
+          <h3 class="best-slots-title">Meilleurs créneaux de la semaine</h3>
+          <ul id="best-slots-list" class="best-slots-list"></ul>
+        </div>
+
         <p id="board-help" class="board-help" hidden></p>
 
         <!-- Choix du "pinceau" pendant la saisie -->
@@ -99,6 +105,7 @@
           <div class="edit-actions">
             <button id="save-btn" class="btn btn-primary" type="button">Enregistrer ma semaine</button>
             <button id="cancel-btn" class="btn btn-ghost" type="button">Annuler</button>
+            <button id="copy-last-week-btn" class="btn btn-ghost" type="button">Reprendre la semaine dernière</button>
             <button id="clear-btn" class="btn btn-ghost" type="button">Tout décocher</button>
           </div>
           <p id="edit-error" class="edit-error" role="alert" hidden></p>

@@ -354,6 +354,56 @@ main {
   .board-actions .btn-primary { padding: .55rem .85rem; font-size: .88rem; }
 }
 
+/* Meilleurs créneaux de la semaine */
+.best-slots {
+  margin: 0 0 1rem;
+  padding: .8rem 1rem;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--bord);
+}
+.best-slots-title {
+  margin: 0 0 .5rem;
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--texte-doux);
+}
+.best-slots-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .45rem;
+}
+.best-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .3rem .75rem;
+}
+.best-when { font-weight: 600; }
+.best-tag {
+  padding: .15rem .65rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+}
+.best-tag.is-full {
+  background: var(--vanille);
+  color: var(--nuit);
+}
+.best-tag.is-sub {
+  background: rgb(230 184 176 / .16);
+  color: var(--poudre);
+}
+.best-slot-empty {
+  color: var(--texte-doux);
+  font-size: .9rem;
+}
+
 .board-help {
   color: var(--texte-doux);
   font-size: .9rem;
