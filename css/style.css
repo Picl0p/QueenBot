@@ -4,47 +4,47 @@
    thème, il suffit (en général) de modifier ces variables.
 
    Répartition des rôles :
-     - violet   : les DONNÉES (intensité des dispos sur l'échiquier)
-     - dégradé  : ce qui est IMPORTANT (match officiel, bouton principal)
-                  → violet électrique vers rose
-     - rose pastel uni : créneau où toute l'équipe est dispo
+     - vanille  : ce qui est IMPORTANT (bouton principal, créneau où toute
+                  l'équipe est dispo, match officiel, dates)
+     - violet   : les DONNÉES (intensité des dispos), en écho à la bannière,
+                  volontairement doux pour ne pas envahir la page
      - nacre    : titres et filets, comme le lettrage argenté du logo
-     - rose     : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
+     - poudre   : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
+   Les fonds sont presque neutres (juste une pointe de prune) pour que
+   la vanille ressorte sans que tout paraisse violet.
    ===================================================================== */
 
 :root {
-  /* Palette de la team */
-  --rose:     #E8C7DC;
-  --rose-vif: #D99AD0;
-  --lavande:  #C8A6E8;
-  --violet:   #A56CEB;
-  --nuit:     #120D24;
-  --ivoire:   #F5EEF7;
+  /* Accent vanille / beige crème (peu saturé, pour ne pas tirer sur le jaune) */
+  --vanille:       #EFE2C6;
+  --beige:         #D9C29E;
+  --vanille-clair: #F3E7CE;   /* texte vanille sur fond sombre */
+  --grad:          linear-gradient(135deg, #F7EEDC, var(--vanille) 45%, var(--beige));
+
+  --poudre:   #E6B8B0;   /* vieux rose poudré */
+  --lavande:  #BBA8DC;   /* violet secondaire, désaturé */
+  --donnee:   #9B7BDB;   /* haut de l'échelle des dispos */
+  --nuit:     #1C1712;   /* texte foncé posé sur la vanille */
 
   /* Nacre : blanc argenté du logo et de la pièce de la reine */
-  --nacre:        #EDE4F8;
-  --nacre-filet:  rgb(222 208 245 / .35);
+  --nacre:        #F4EEF1;
+  --nacre-filet:  rgb(236 226 236 / .3);
 
-  /* Accent principal (celui du bouton "Modifier mes dispos") */
-  --violet-vif: #B585FF;   /* aussi le haut de l'échelle des dispos */
-  --grad:       linear-gradient(135deg, var(--violet-vif), var(--rose-vif));
+  /* Fonds : presque neutres, avec le halo violet de la bannière en haut */
+  --fond:        #0E0C13;
+  --fond-lueur:  #26173D;   /* halo derrière la bannière */
+  --surface:     #1A1720;   /* blocs */
+  --surface-2:   #25212D;   /* survol, champs, pastilles */
+  --bord:        #3A3444;
 
-  /* Fonds : nuit profonde comme la bannière, blocs nettement plus clairs
-     pour que les niveaux se détachent */
-  --fond:        #0C0919;
-  --fond-lueur:  #2B1854;   /* halo derrière la bannière */
-  --surface:     #1C1733;   /* blocs */
-  --surface-2:   #2A2249;   /* survol, champs, pastilles */
-  --bord:        #3F3570;
-
-  --texte:       #FAF6FD;
-  --texte-doux:  #C9BFDF;
+  --texte:       #F8F5F3;
+  --texte-doux:  #BFB8C6;
 
   /* Échiquier */
-  --case-sombre: #251E44;
-  --case-claire: #30285A;
-  --case-non:    #0A0716;   /* "pas dispo" */
-  --croix:       #6E6399;
+  --case-sombre: #221E2A;
+  --case-claire: #2B2635;
+  --case-non:    #09080D;   /* "pas dispo" */
+  --croix:       #6A6275;
 
   --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -73,7 +73,7 @@ h1, h2 {
   line-height: 1.2;
   margin: 0 0 .75rem;
   color: var(--nacre);
-  text-shadow: 0 0 18px rgb(165 108 235 / .45);
+  text-shadow: 0 0 18px rgb(240 226 196 / .25);
 }
 h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
 h2 { font-size: 1.35rem; }
@@ -140,7 +140,7 @@ main {
 }
 .avatar {
   border-radius: 50%;
-  border: 2px solid var(--lavande);
+  border: 2px solid var(--vanille);
 }
 .user-name { font-weight: 600; }
 
@@ -159,7 +159,7 @@ main {
 .btn-primary {
   background: var(--grad);
   color: var(--nuit);
-  box-shadow: 0 4px 16px rgb(181 133 255 / .3);
+  box-shadow: 0 4px 16px rgb(226 206 170 / .3);
 }
 .btn-primary:hover { filter: brightness(1.1); }
 
@@ -170,7 +170,7 @@ main {
   padding: .4rem .8rem;
   font-size: .85rem;
 }
-.btn-ghost:hover { color: var(--texte); border-color: var(--lavande); }
+.btn-ghost:hover { color: var(--texte); border-color: var(--vanille-clair); }
 
 .btn-icon {
   background: var(--surface);
@@ -182,7 +182,7 @@ main {
   font-size: 1.3rem;
   line-height: 1;
 }
-.btn-icon:hover { border-color: var(--lavande); background: var(--surface-2); }
+.btn-icon:hover { border-color: var(--vanille-clair); background: var(--surface-2); }
 
 .btn:disabled { opacity: .6; cursor: wait; }
 
@@ -229,9 +229,9 @@ main {
   max-width: 40rem;
   margin: 1rem auto;
   padding: .8rem 1rem;
-  border-left: 3px solid var(--rose);
+  border-left: 3px solid var(--poudre);
   background: var(--surface);
-  color: var(--rose);
+  color: var(--poudre);
 }
 
 
@@ -277,7 +277,7 @@ main {
 .event.type-match_officiel::before {
   background: var(--grad) border-box;
   border-color: transparent;
-  box-shadow: 0 0 10px rgb(217 154 208 / .6);
+  box-shadow: 0 0 10px rgb(226 206 170 / .6);
 }
 .event-empty { color: var(--texte-doux); }
 .event-empty::before { border-color: var(--bord); }
@@ -285,7 +285,7 @@ main {
 .event-date {
   display: block;
   font-weight: 700;
-  color: var(--lavande);
+  color: var(--vanille-clair);
 }
 .event-date::first-letter { text-transform: uppercase; }
 .event-time { color: var(--texte-doux); font-size: .9rem; }
@@ -309,8 +309,8 @@ main {
   color: var(--lavande);
 }
 .type-match_officiel .event-type {
-  background: rgb(217 154 208 / .2);
-  color: var(--rose);
+  background: rgb(226 206 170 / .2);
+  color: var(--poudre);
 }
 .event-opponent { color: var(--texte-doux); }
 .event-notes {
@@ -368,7 +368,7 @@ main {
   box-shadow:
     inset 0 0 0 4px var(--surface),
     inset 0 0 0 5px rgb(222 208 245 / .12),
-    0 0 40px rgb(165 108 235 / .15),
+    0 0 40px rgb(120 80 190 / .1),
     0 10px 30px rgb(0 0 0 / .4);
 }
 
@@ -386,7 +386,7 @@ main {
 }
 .board thead th { padding-bottom: .3rem; }
 .board thead th:first-child { width: 2.6rem; }
-.board thead th.today .day-num { color: var(--rose-vif); }
+.board thead th.today .day-num { color: var(--beige); }
 .day-name, .day-num { display: block; }
 .day-num {
   font-family: var(--font-titre);
@@ -411,27 +411,26 @@ main {
   font: 700 .9rem var(--font-texte);
   color: #fff;
   background: var(--base);
-  background: color-mix(in oklab, var(--violet-vif) calc(var(--fill) * 100%), var(--base));
+  background: color-mix(in oklab, var(--donnee) calc(var(--fill) * 100%), var(--base));
   transition: box-shadow .15s;
 }
 .sq-light { --base: var(--case-claire); }
 
-/* Toute l'équipe est dispo : rose pastel uni, doux mais bien distinct
-   de l'échelle violette */
+/* Toute l'équipe est dispo : vanille uni, bien distinct de l'échelle violette */
 .sq.is-full {
-  background: var(--rose);
+  background: var(--vanille);
   color: var(--nuit);
 }
 /* Jouable en comptant les "à éviter" */
 .sq.is-possible {
-  outline: 2px dashed var(--rose-vif);
+  outline: 2px dashed var(--beige);
   outline-offset: -4px;
 }
 .sq-maybe {
   margin-left: .2rem;
   font-size: .72rem;
   font-weight: 600;
-  color: var(--rose);
+  color: var(--poudre);
 }
 .sq.is-full .sq-maybe { color: var(--nuit); }
 
@@ -441,10 +440,10 @@ main {
   background: var(--case-non);
   color: var(--croix);
   font-weight: 400;
-  box-shadow: inset 0 0 0 1px rgb(125 114 166 / .3);
+  box-shadow: inset 0 0 0 1px rgb(120 110 135 / .3);
 }
 
-.sq:hover { box-shadow: 0 0 0 2px var(--lavande); }
+.sq:hover { box-shadow: 0 0 0 2px var(--texte-doux); }
 .sq[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--nacre); }
 
 .slot-detail {
@@ -460,10 +459,10 @@ main {
 /* ---------- Mode saisie ---------- */
 
 .board-panel.is-editing .board-frame {
-  border-color: var(--rose);
+  border-color: var(--poudre);
   box-shadow:
     inset 0 0 0 4px var(--surface),
-    inset 0 0 0 5px rgb(232 199 220 / .4),
+    inset 0 0 0 5px rgb(230 184 176 / .4),
     0 10px 30px rgb(0 0 0 / .25);
 }
 .board-panel.is-editing .sq {
@@ -481,8 +480,8 @@ main {
 .swatch-maybe {
   background: repeating-linear-gradient(
     -45deg,
-    rgb(232 199 220 / .7) 0 5px,
-    rgb(232 199 220 / .3) 5px 10px
+    rgb(230 184 176 / .7) 0 5px,
+    rgb(230 184 176 / .3) 5px 10px
   );
   color: #fff;
   text-shadow: 0 1px 2px rgb(0 0 0 / .7);
@@ -506,9 +505,9 @@ main {
   font: 600 .9rem var(--font-texte);
   cursor: pointer;
 }
-.brush:hover { border-color: var(--lavande); color: var(--texte); }
+.brush:hover { border-color: var(--vanille-clair); color: var(--texte); }
 .brush[aria-checked="true"] {
-  border-color: var(--rose);
+  border-color: var(--poudre);
   background: var(--surface-2);
   color: var(--texte);
 }
@@ -546,7 +545,7 @@ main {
   font: inherit;
   resize: vertical;
 }
-.edit-panel textarea:focus-visible { border-color: var(--lavande); }
+.edit-panel textarea:focus-visible { border-color: var(--vanille); }
 
 .edit-actions {
   display: flex;
@@ -557,7 +556,7 @@ main {
 
 .edit-error {
   margin-top: 1rem;
-  color: var(--rose);
+  color: var(--poudre);
 }
 
 
@@ -579,11 +578,11 @@ main {
 }
 .comments li {
   padding-left: .8rem;
-  background: linear-gradient(to bottom, var(--violet-vif), var(--rose-vif)) left / 2px 100% no-repeat;
+  background: linear-gradient(to bottom, var(--vanille), var(--beige)) left / 2px 100% no-repeat;
 }
 .comment-author {
   font-weight: 700;
-  color: var(--rose);
+  color: var(--poudre);
   margin-right: .5rem;
 }
 .comment-author::after { content: " :"; }
@@ -606,7 +605,7 @@ main {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--lavande);
+  color: var(--vanille-clair);
   font: 600 .85rem var(--font-texte);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -632,10 +631,10 @@ main {
 
 .btn-danger {
   margin-left: auto;
-  color: var(--rose);
-  border-color: rgb(232 199 220 / .35);
+  color: var(--poudre);
+  border-color: rgb(230 184 176 / .35);
 }
-.btn-danger:hover { color: #fff; border-color: var(--rose); }
+.btn-danger:hover { color: #fff; border-color: var(--poudre); }
 
 /* Fenêtre modale */
 .event-dialog {
@@ -674,7 +673,7 @@ main {
 .field textarea { resize: vertical; }
 .field input:focus-visible,
 .field select:focus-visible,
-.field textarea:focus-visible { border-color: var(--lavande); }
+.field textarea:focus-visible { border-color: var(--vanille); }
 
 .form-row {
   display: grid;
@@ -711,7 +710,7 @@ main {
 .toast::before {
   content: "✓";
   margin-right: .5rem;
-  color: var(--rose-vif);
+  color: var(--beige);
 }
 .toast.is-visible {
   opacity: 1;
