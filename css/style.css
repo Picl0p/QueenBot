@@ -322,31 +322,36 @@ main {
 
 /* ---------- Échiquier : en-tête et statut ---------- */
 
-.board-head {
+/* Semaine à gauche, bouton à droite, jamais l'un sous l'autre */
+.board-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
-  gap: .75rem 1.5rem;
-  margin-bottom: .5rem;
+  gap: .75rem;
+  margin: .25rem 0 1rem;
 }
-.board-head h2 { margin: 0; }
 
 .week-nav {
   display: flex;
   align-items: center;
   gap: .6rem;
+  min-width: 0;
 }
 .week-label {
   min-width: 11rem;
   text-align: center;
   font-weight: 600;
+  white-space: nowrap;
 }
+.week-short { display: none; }
 
-.board-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin: .75rem 0 1rem;
+@media (max-width: 560px) {
+  .week-long { display: none; }
+  .week-short { display: inline; }
+  .week-nav { gap: .4rem; }
+  .week-label { min-width: 4.2rem; }
+  .board-actions .btn-primary { padding: .55rem .85rem; font-size: .88rem; }
 }
 
 .board-help {
@@ -398,13 +403,15 @@ main {
   padding-right: .4rem;
   white-space: nowrap;
 }
+/* Les demi-heures restent discrètes : les heures pleines servent de repères */
+.board tr.half-hour th { font-size: .7rem; opacity: .6; }
 
 .sq {
   --base: var(--case-sombre);
   --fill: 0;
   display: block;
   width: 100%;
-  min-height: 2.2rem;
+  min-height: 1.75rem;
   border: 0;
   border-radius: 5px;
   cursor: pointer;
@@ -726,6 +733,6 @@ main {
 @media (max-width: 520px) {
   .board-frame { padding: .4rem; }
   .board { border-spacing: 2px; }
-  .sq { font-size: .8rem; min-height: 1.9rem; }
+  .sq { font-size: .8rem; min-height: 1.6rem; }
   .sq-maybe { margin-left: .05rem; }
 }

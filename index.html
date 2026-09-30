@@ -60,16 +60,15 @@
       </section>
 
       <section id="board-panel" class="board-panel" aria-labelledby="board-title">
-        <div class="board-head">
-          <h2 id="board-title">Échiquier de la semaine</h2>
+        <h2 id="board-title">Échiquier de la semaine</h2>
+
+        <!-- Semaine affichée et bouton de saisie, toujours sur la même ligne -->
+        <div class="board-actions">
           <div class="week-nav">
             <button id="prev-week" class="btn btn-icon" type="button" aria-label="Semaine précédente">‹</button>
             <span id="week-label" class="week-label"></span>
             <button id="next-week" class="btn btn-icon" type="button" aria-label="Semaine suivante">›</button>
           </div>
-        </div>
-
-        <div id="board-actions" class="board-actions">
           <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
         </div>
 
@@ -133,7 +132,7 @@
       <div class="field">
         <label for="ev-type">Type</label>
         <select id="ev-type">
-          <option value="entrainement">Entraînement</option>
+          <option value="flex">Flex</option>
           <option value="scrim">Scrim</option>
           <option value="match_officiel">Match officiel</option>
           <option value="review">Review</option>

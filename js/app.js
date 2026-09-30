@@ -61,11 +61,28 @@ function toISODate(d) {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+// --- Créneaux d'une demi-heure ---
+// Un créneau est repéré par sa clé "2026-09-28|20|30" (jour|heure|minute).
+
+const slotKey = (day, hour, minute) => `${day}|${hour}|${minute}`;
+
+// 20, 0 → "20h" ; 20, 30 → "20h30"
+const slotLabel = (hour, minute) => (minute ? `${hour}h${minute}` : `${hour}h`);
+
+// Créneaux affichés sur l'échiquier : 18h, 18h30, 19h, … jusqu'à la fin de plage
+function boardSlots() {
+  const slots = [];
+  for (let hour = BOARD_START_HOUR; hour < BOARD_END_HOUR; hour++) {
+    slots.push({ hour, minute: 0 }, { hour, minute: 30 });
+  }
+  return slots;
+}
+
 const JOURS_COURTS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 const JOURS_LONGS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
 
 const TYPE_LABELS = {
-  entrainement: "Entraînement",
+  flex: "Flex",
   scrim: "Scrim",
   match_officiel: "Match officiel",
   review: "Review",
@@ -111,18 +128,18 @@ const state = {
 
   // Échiquier
   heat: [],              // résultat de availability_heatmap
-  heatMap: new Map(),    // même chose, indexé par "jour|heure"
+  heatMap: new Map(),    // même chose, indexé par "jour|heure|minute"
   missing: [],           // joueurs qui n'ont pas répondu
   submissions: [],       // semaines validées (avec commentaires)
   mySubmission: null,    // ma validation pour la semaine affichée
-  savedSlots: new Map(), // mes créneaux enregistrés : "jour|heure" → statut
+  savedSlots: new Map(), // mes créneaux enregistrés : "jour|heure|minute" → statut
   mySlots: new Map(),    // mes créneaux pendant la saisie (copie de travail)
   editing: false,        // mode saisie actif ?
   brush: "dispo",        // statut appliqué en cliquant : dispo, a_eviter, pas_dispo
 
   // Rendez-vous
   weekEvents: [],        // rendez-vous de la semaine affichée
-  eventMap: new Map(),   // "jour|heure" → rendez-vous qui occupent la case
+  eventMap: new Map(),   // "jour|heure|minute" → rendez-vous qui occupent la case
   editingEvent: null,    // rendez-vous ouvert dans le formulaire (null = création)
 };
 
@@ -298,7 +315,7 @@ function renderEvents(events) {
 // --- Formulaire (fenêtre <dialog>) ---
 
 // ev : rendez-vous à modifier (ou null pour en créer un)
-// preset : { date: Date, hour: 20 } pour pré-remplir depuis l'échiquier
+// preset : { date: Date, hour: 20, minute: 30 } pour pré-remplir depuis l'échiquier
 function openEventDialog(ev = null, preset = null) {
   state.editingEvent = ev;
   $("#ev-error").hidden = true;
@@ -316,11 +333,12 @@ function openEventDialog(ev = null, preset = null) {
   } else {
     const date = preset?.date || new Date();
     const hour = preset?.hour ?? 20;
-    $("#ev-type").value = "entrainement";
+    const mm = String(preset?.minute ?? 0).padStart(2, "0");
+    $("#ev-type").value = "flex";
     $("#ev-title").value = "";
     $("#ev-date").value = toISODate(date);
-    $("#ev-start").value = `${String(hour).padStart(2, "0")}:00`;
-    $("#ev-end").value = `${String((hour + 2) % 24).padStart(2, "0")}:00`;
+    $("#ev-start").value = `${String(hour).padStart(2, "0")}:${mm}`;
+    $("#ev-end").value = `${String((hour + 2) % 24).padStart(2, "0")}:${mm}`;
     $("#ev-opponent").value = "";
     $("#ev-notes").value = "";
   }
@@ -437,7 +455,7 @@ async function loadBoard() {
     db.rpc("availability_heatmap", { p_week_start: week }),
     db.rpc("players_missing_availability", { p_week_start: week }),
     db.from("availabilities")
-      .select("day, hour, status")
+      .select("day, hour, minute, status")
       .eq("player_id", state.player.id)
       .gte("day", week)
       .lt("day", weekEnd),
@@ -457,8 +475,8 @@ async function loadBoard() {
 
   state.heat = heat.data;
   state.missing = missing.data;
-  // Map "jour|heure" → statut ("dispo" ou "a_eviter")
-  state.savedSlots = new Map(mine.data.map((s) => [`${s.day}|${s.hour}`, s.status]));
+  // Map "jour|heure|minute" → statut ("dispo" ou "a_eviter")
+  state.savedSlots = new Map(mine.data.map((s) => [slotKey(s.day, s.hour, s.minute), s.status]));
   state.submissions = submissions.data;
   state.mySubmission = submissions.data.find((s) => s.player_id === state.player.id) || null;
   state.weekEvents = weekEvents.data;
@@ -488,9 +506,19 @@ function renderAll() {
   }
 }
 
+// Deux versions du libellé : la courte ("29 sept.") remplace la longue sur
+// petit écran, pour que la semaine tienne à côté du bouton (voir le CSS)
 function renderWeekLabel() {
-  const label = state.weekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-  $("#week-label").textContent = `Semaine du ${label}`;
+  const long = state.weekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const short = state.weekStart.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const el = $("#week-label");
+  el.replaceChildren();
+  for (const [cls, text] of [["week-long", `Semaine du ${long}`], ["week-short", short]]) {
+    const span = document.createElement("span");
+    span.className = cls;
+    span.textContent = text;
+    el.append(span);
+  }
 }
 
 // Compte les créneaux par statut dans une Map "jour|heure" → statut
@@ -509,7 +537,7 @@ function describeCounts({ dispo, maybe }) {
 
 function renderMyStatus() {
   const button = $("#edit-btn");
-  $("#board-actions").hidden = state.editing || isPastWeek();
+  button.hidden = state.editing || isPastWeek();
   button.textContent = state.mySubmission ? "Modifier mes dispos" : "Indiquer mes dispos";
 }
 
@@ -531,7 +559,7 @@ function renderBrushes() {
 
 function renderBoard() {
   const total = teamSize();
-  state.heatMap = new Map(state.heat.map((row) => [`${row.day}|${row.hour}`, row]));
+  state.heatMap = new Map(state.heat.map((row) => [slotKey(row.day, row.hour, row.minute), row]));
   state.eventMap = buildEventMap(state.weekEvents);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(state.weekStart, i));
@@ -548,25 +576,29 @@ function renderBoard() {
     );
   });
 
-  // Corps : une ligne par heure
+  // Corps : une ligne par demi-heure
   const body = el("tbody");
-  for (let hour = BOARD_START_HOUR; hour < BOARD_END_HOUR; hour++) {
-    const row = el("tr", {}, el("th", { scope: "row", text: `${hour}h` }));
+  boardSlots().forEach(({ hour, minute }, rowIndex) => {
+    const label = slotLabel(hour, minute);
+    const row = el("tr", { class: minute ? "half-hour" : "" }, el("th", { scope: "row", text: label }));
 
     days.forEach((d, i) => {
-      const key = `${toISODate(d)}|${hour}`;
+      const key = slotKey(toISODate(d), hour, minute);
+      // Alternance des cases, comme sur un vrai échiquier
+      const shade = (i + rowIndex) % 2 ? "sq-light" : "sq-dark";
       const button = state.editing
-        ? editCell(key, i, hour)
-        : viewCell(key, i, hour, total);
+        ? editCell(key, i, label, shade)
+        : viewCell(key, i, label, shade, total);
       button.dataset.key = key;
       button.dataset.dayIndex = String(i);
       button.dataset.hour = String(hour);
+      button.dataset.minute = String(minute);
       if (state.eventMap.has(key)) button.classList.add("has-event");
       row.append(el("td", {}, button));
     });
 
     body.append(row);
-  }
+  });
 
   $("#board").replaceChildren(el("thead", {}, headRow), body);
 
@@ -577,8 +609,8 @@ function renderBoard() {
   }
 }
 
-// Associe chaque case "jour|heure" aux rendez-vous qui l'occupent.
-// Un rendez-vous de 20h à 22h occupe les cases 20h et 21h ;
+// Associe chaque case "jour|heure|minute" aux rendez-vous qui l'occupent.
+// Un rendez-vous de 20h à 21h occupe les cases 20h et 20h30 ;
 // sans heure de fin, seulement la case de début.
 function buildEventMap(events) {
   const map = new Map();
@@ -586,25 +618,24 @@ function buildEventMap(events) {
     const start = new Date(ev.starts_at);
     const end = ev.ends_at ? new Date(ev.ends_at) : new Date(start.getTime() + 1);
     const cursor = new Date(start);
-    cursor.setMinutes(0, 0, 0);
+    cursor.setMinutes(cursor.getMinutes() < 30 ? 0 : 30, 0, 0);
     while (cursor < end) {
-      const key = `${toISODate(cursor)}|${cursor.getHours()}`;
+      const key = slotKey(toISODate(cursor), cursor.getHours(), cursor.getMinutes());
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(ev);
-      cursor.setHours(cursor.getHours() + 1);
+      cursor.setMinutes(cursor.getMinutes() + 30);
     }
   }
   return map;
 }
 
 // Case en mode consultation
-function viewCell(key, dayIndex, hour, total) {
+function viewCell(key, dayIndex, label, shade, total) {
   const slot = state.heatMap.get(key);
   const n = slot ? Number(slot.n_available) : 0;
   const m = slot ? Number(slot.n_maybe) : 0;
 
-  // Alternance des cases, comme sur un vrai échiquier
-  const classes = ["sq", (dayIndex + hour) % 2 ? "sq-light" : "sq-dark"];
+  const classes = ["sq", shade];
   // Personne de dispo : croix, mais seulement si au moins un joueur a
   // répondu cette semaine (sinon la case est vide faute d'info, pas "non")
   const nobody = n === 0 && m === 0;
@@ -612,14 +643,14 @@ function viewCell(key, dayIndex, hour, total) {
   if (total && n >= total) classes.push("is-full");
   else if (total && n + m >= total) classes.push("is-possible");
 
-  let label = `${JOURS_LONGS[dayIndex]} ${hour}h : ${n} dispo`;
-  if (m) label += `, ${m} à éviter`;
-  if (total && n >= total) label += ", toute l'équipe";
+  let ariaLabel = `${JOURS_LONGS[dayIndex]} ${label} : ${n} dispo`;
+  if (m) ariaLabel += `, ${m} à éviter`;
+  if (total && n >= total) ariaLabel += ", toute l'équipe";
 
   const button = el("button", {
     type: "button",
     class: classes.join(" "),
-    "aria-label": label,
+    "aria-label": ariaLabel,
     "aria-pressed": "false",
   },
     nobody && state.submissions.length ? "✕" : null,
@@ -634,11 +665,11 @@ function viewCell(key, dayIndex, hour, total) {
 }
 
 // Case en mode saisie
-function editCell(key, dayIndex, hour) {
+function editCell(key, dayIndex, label, shade) {
   const button = el("button", {
     type: "button",
-    class: `sq ${(dayIndex + hour) % 2 ? "sq-light" : "sq-dark"}`,
-    "aria-label": `${JOURS_LONGS[dayIndex]} ${hour}h`,
+    class: `sq ${shade}`,
+    "aria-label": `${JOURS_LONGS[dayIndex]} ${label}`,
   });
   button.dataset.key = key;
   refreshCell(button);
@@ -651,13 +682,14 @@ function showSlot(cell) {
   cell.setAttribute("aria-pressed", "true");
 
   const dayIndex = Number(cell.dataset.dayIndex);
-  const hour = cell.dataset.hour;
+  const hour = Number(cell.dataset.hour);
+  const minute = Number(cell.dataset.minute);
   const date = addDays(state.weekStart, dayIndex);
   const slot = state.heatMap.get(cell.dataset.key);
   const n = slot ? Number(slot.n_available) : 0;
   const m = slot ? Number(slot.n_maybe) : 0;
 
-  const when = `${JOURS_LONGS[dayIndex]} ${date.getDate()} à ${hour}h`;
+  const when = `${JOURS_LONGS[dayIndex]} ${date.getDate()} à ${slotLabel(hour, minute)}`;
   let text;
   if (n === 0 && m === 0) {
     text = `Personne n'est dispo ${when}.`;
@@ -677,7 +709,7 @@ function showSlot(cell) {
   // Raccourci admin : planifier directement sur ce créneau
   const planBtn = $("#plan-slot-btn");
   planBtn.hidden = !isAdmin() || isPastWeek() || events.length > 0;
-  planBtn.onclick = () => openEventDialog(null, { date, hour: Number(hour) });
+  planBtn.onclick = () => openEventDialog(null, { date, hour, minute });
 }
 
 function renderMissing() {
@@ -803,10 +835,10 @@ async function saveWeek() {
   button.textContent = "Enregistrement…";
   $("#edit-error").hidden = true;
 
-  // "2026-09-28|20" + "a_eviter" → { day: "2026-09-28", hour: 20, status: "a_eviter" }
+  // "2026-09-28|20|30" + "a_eviter" → { day: "2026-09-28", hour: 20, minute: 30, status: "a_eviter" }
   const slots = [...state.mySlots].map(([key, status]) => {
-    const [day, hour] = key.split("|");
-    return { day, hour: Number(hour), status };
+    const [day, hour, minute] = key.split("|");
+    return { day, hour: Number(hour), minute: Number(minute), status };
   });
 
   const { error } = await db.rpc("set_my_availability", {

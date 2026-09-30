@@ -55,7 +55,7 @@ SCHEDULES = {
 }
 
 TYPE_LABELS = {
-    "entrainement": "Entraînement",
+    "flex": "Flex",
     "scrim": "Scrim",
     "match_officiel": "Match officiel",
     "review": "Review",
@@ -195,25 +195,25 @@ def relance(today):
 # Notification 2 : planning du jour
 # ---------------------------------------------------------------------
 
-def heures_couvertes(start, end):
-    """Heures (date, heure) occupées par un rendez-vous, en heure de Paris.
-    20h–22h → [(jour, 20), (jour, 21)] ; sans fin → seulement l'heure de début."""
+def creneaux_couverts(start, end):
+    """Demi-heures (date, heure, minute) occupées par un rendez-vous, en heure de Paris.
+    20h–21h → [(jour, 20, 0), (jour, 20, 30)] ; sans fin → seulement le créneau de début."""
+    cursor = start.replace(minute=0 if start.minute < 30 else 30, second=0, microsecond=0)
     if end is None:
-        return [(start.date(), start.hour)]
-    cursor = start.replace(minute=0, second=0, microsecond=0)
+        return [(cursor.date(), cursor.hour, cursor.minute)]
     slots = []
     while cursor < end:
-        slots.append((cursor.date(), cursor.hour))
-        cursor += timedelta(hours=1)
+        slots.append((cursor.date(), cursor.hour, cursor.minute))
+        cursor += timedelta(minutes=30)
     return slots
 
 
 def statut_joueur(player_id, slots, dispos, a_repondu):
     """Statut d'un joueur sur toute la durée du rendez-vous :
-    il faut être dispo sur TOUTES les heures pour être "dispo"."""
+    il faut être dispo sur TOUS les créneaux pour être "dispo"."""
     if not a_repondu:
         return "pas_repondu"
-    statuts = [dispos.get((player_id, day, hour)) for day, hour in slots]
+    statuts = [dispos.get((player_id, day, hour, minute)) for day, hour, minute in slots]
     if any(s is None for s in statuts):
         return "pas_dispo"
     if any(s == "a_eviter" for s in statuts):
@@ -246,16 +246,17 @@ def planning(today):
 
     # Dispos d'aujourd'hui et de demain (pour les rendez-vous après minuit)
     rows = supabase("availabilities", {
-        "select": "player_id,day,hour,status",
+        "select": "player_id,day,hour,minute,status",
         "day": [f"gte.{today.isoformat()}", f"lte.{(today + timedelta(days=1)).isoformat()}"],
     })
-    dispos = {(r["player_id"], date.fromisoformat(r["day"]), r["hour"]): r["status"] for r in rows}
+    dispos = {(r["player_id"], date.fromisoformat(r["day"]), r["hour"], r["minute"]): r["status"]
+              for r in rows}
 
     embeds = []
     for ev in events[:10]:   # Discord accepte au plus 10 encadrés par message
         start = datetime.fromisoformat(ev["starts_at"]).astimezone(PARIS)
         end = datetime.fromisoformat(ev["ends_at"]).astimezone(PARIS) if ev["ends_at"] else None
-        slots = heures_couvertes(start, end)
+        slots = creneaux_couverts(start, end)
 
         groupes = {"dispo": [], "a_eviter": [], "pas_dispo": [], "pas_repondu": []}
         for p in players:
