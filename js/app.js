@@ -70,8 +70,8 @@ const slotKey = (day, hour, minute) => `${day}|${hour}|${minute}`;
 // 20, 0 → "20h" ; 20, 30 → "20h30"
 const slotLabel = (hour, minute) => (minute ? `${hour}h${minute}` : `${hour}h`);
 
-// Lignes de l'échiquier : une par demi-heure, depuis l'heure de début la
-// plus tôt (celle du week-end) jusqu'à la fin de plage.
+// Tous les créneaux d'une journée : un par demi-heure, depuis l'heure de
+// début la plus tôt (celle du week-end) jusqu'à la fin de plage.
 function boardSlots() {
   const slots = [];
   const first = Math.min(BOARD_START_HOUR, BOARD_WEEKEND_START_HOUR);
@@ -82,7 +82,7 @@ function boardSlots() {
 }
 
 // Le créneau existe-t-il ce jour-là ? (dayIndex : lundi = 0 … dimanche = 6)
-// En semaine, les lignes d'avant 18h restent vides : elles ne servent qu'au week-end.
+// Les créneaux d'avant 18h n'existent que le samedi et le dimanche.
 function slotOpen(dayIndex, hour) {
   return hour >= (dayIndex >= 5 ? BOARD_WEEKEND_START_HOUR : BOARD_START_HOUR);
 }
@@ -940,31 +940,46 @@ function renderBoard() {
     [slotKey(row.day, row.hour, row.minute), splitCoaches(row, coaches)]));
   state.eventMap = buildEventMap(state.weekEvents);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(state.weekStart, i));
+  // Deux plateaux : le soir pour toute la semaine, et la journée pour le
+  // seul week-end (inutile d'afficher des lignes vides du lundi au vendredi).
+  const evening = boardSlots().filter((s) => s.hour >= BOARD_START_HOUR);
+  const daytime = boardSlots().filter((s) => s.hour < BOARD_START_HOUR);
+  buildBoard($("#board"), [0, 1, 2, 3, 4, 5, 6], evening, total);
+  buildBoard($("#board-weekend"), [5, 6], daytime, total);
+  $("#weekend-block").hidden = daytime.length === 0;
+
+  if (!state.editing) {
+    $("#slot-detail").textContent = state.heat.length
+      ? `Touche une case pour voir qui est dispo. ${COACH_ICON} : le coach est là.`
+      : "Personne n'a encore indiqué de dispo pour cette semaine.";
+  }
+}
+
+// Remplit un plateau : une colonne par jour (dayIndexes : lundi = 0 …
+// dimanche = 6), une ligne par demi-heure.
+function buildBoard(table, dayIndexes, slots, total) {
   const todayIso = toISODate(new Date());
 
   // En-tête : une colonne par jour
   const headRow = el("tr", {}, el("th", { scope: "col" }));
-  days.forEach((d, i) => {
+  for (const i of dayIndexes) {
+    const d = addDays(state.weekStart, i);
     headRow.append(
       el("th", { scope: "col", class: toISODate(d) === todayIso ? "today" : "" },
         el("span", { class: "day-name", text: JOURS_COURTS[i] }),
         el("span", { class: "day-num", text: String(d.getDate()) })
       )
     );
-  });
+  }
 
   // Corps : une ligne par demi-heure
   const body = el("tbody");
-  boardSlots().forEach(({ hour, minute }, rowIndex) => {
+  slots.forEach(({ hour, minute }, rowIndex) => {
     const label = slotLabel(hour, minute);
     const row = el("tr", { class: minute ? "half-hour" : "" }, el("th", { scope: "row", text: label }));
 
-    days.forEach((d, i) => {
-      // Créneau fermé ce jour-là (matin et après-midi en semaine) : case vide
-      if (!slotOpen(i, hour)) return row.append(el("td"));
-
-      const key = slotKey(toISODate(d), hour, minute);
+    for (const i of dayIndexes) {
+      const key = slotKey(toISODate(addDays(state.weekStart, i)), hour, minute);
       // Alternance des cases, comme sur un vrai échiquier
       const shade = (i + rowIndex) % 2 ? "sq-light" : "sq-dark";
       const button = state.editing
@@ -976,18 +991,12 @@ function renderBoard() {
       button.dataset.minute = String(minute);
       if (state.eventMap.has(key)) button.classList.add("has-event");
       row.append(el("td", {}, button));
-    });
+    }
 
     body.append(row);
   });
 
-  $("#board").replaceChildren(el("thead", {}, headRow), body);
-
-  if (!state.editing) {
-    $("#slot-detail").textContent = state.heat.length
-      ? `Touche une case pour voir qui est dispo. ${COACH_ICON} : le coach est là.`
-      : "Personne n'a encore indiqué de dispo pour cette semaine.";
-  }
+  table.replaceChildren(el("thead", {}, headRow), body);
 }
 
 // Associe chaque case "jour|heure|minute" aux rendez-vous qui l'occupent.
@@ -1309,7 +1318,7 @@ const paint = { active: false, value: "dispo", lastKey: null };
 
 function paintAt(x, y) {
   const cell = document.elementFromPoint(x, y)?.closest(".sq");
-  if (!cell || !$("#board").contains(cell) || cell.dataset.key === paint.lastKey) return;
+  if (!cell || !$("#boards").contains(cell) || cell.dataset.key === paint.lastKey) return;
   paint.lastKey = cell.dataset.key;
   setSlot(cell, paint.value);
 }
@@ -1366,7 +1375,7 @@ async function copyLastWeek() {
     const day = toISODate(addDays(new Date(`${s.day}T00:00`), 7));
     return [slotKey(day, s.hour, s.minute), s.status];
   }));
-  document.querySelectorAll("#board .sq").forEach(refreshCell);
+  document.querySelectorAll("#boards .sq").forEach(refreshCell);
   renderEditCount();
   showToast("Semaine dernière reprise : ajuste si besoin, puis enregistre");
 }
@@ -1422,10 +1431,10 @@ $("#denied-logout-btn").addEventListener("click", logout);
 $("#prev-week").addEventListener("click", () => changeWeek(-1));
 $("#next-week").addEventListener("click", () => changeWeek(1));
 
-// Échiquier : un seul écouteur sur le tableau (délégation d'événements),
-// qui continue de fonctionner quand les cases sont redessinées.
-$("#board").addEventListener("pointerdown", onBoardPointerDown);
-$("#board").addEventListener("click", onBoardClick);
+// Échiquier : un seul écouteur pour les deux plateaux (délégation
+// d'événements), qui continue de fonctionner quand les cases sont redessinées.
+$("#boards").addEventListener("pointerdown", onBoardPointerDown);
+$("#boards").addEventListener("click", onBoardClick);
 document.addEventListener("pointermove", (e) => { if (paint.active) paintAt(e.clientX, e.clientY); });
 document.addEventListener("pointerup", () => { paint.active = false; });
 document.addEventListener("pointercancel", () => { paint.active = false; });
@@ -1437,7 +1446,7 @@ $("#cancel-btn").addEventListener("click", () => { if (confirmLeaveEdit()) exitE
 $("#copy-last-week-btn").addEventListener("click", copyLastWeek);
 $("#clear-btn").addEventListener("click", () => {
   state.mySlots.clear();
-  document.querySelectorAll("#board .sq").forEach(refreshCell);
+  document.querySelectorAll("#boards .sq").forEach(refreshCell);
   renderEditCount();
 });
 document.querySelectorAll(".brush").forEach((b) => {

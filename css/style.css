@@ -453,6 +453,25 @@ main {
   padding-right: .4rem;
   white-space: nowrap;
 }
+/* Second plateau : la journée du samedi et du dimanche. Deux colonnes
+   seulement, donc moins large que le plateau de la semaine. */
+.weekend-block {
+  margin-top: 1rem;
+  padding-top: .75rem;
+  border-top: 1px solid var(--bord);
+}
+.weekend-title {
+  font-family: var(--font-texte);
+  font-size: .9rem;
+  font-weight: 600;
+  color: var(--texte-doux);
+  margin: 0 0 .5rem;
+}
+.board-weekend {
+  width: 45%;
+  min-width: 12rem;
+}
+
 /* Les demi-heures restent discrètes : les heures pleines servent de repères */
 .board tr.half-hour th { font-size: .7rem; opacity: .6; }
 

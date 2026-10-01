@@ -93,8 +93,14 @@
           </button>
         </div>
 
-        <div class="board-frame">
+        <div id="boards" class="board-frame">
+          <!-- Le soir, toute la semaine -->
           <table id="board" class="board"></table>
+          <!-- La journée, samedi et dimanche seulement -->
+          <div id="weekend-block" class="weekend-block">
+            <h3 class="weekend-title">Week-end en journée</h3>
+            <table id="board-weekend" class="board board-weekend"></table>
+          </div>
         </div>
 
         <!-- Visible uniquement pendant la saisie -->
