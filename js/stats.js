@@ -46,10 +46,10 @@ const MIN_GAMES = 2;
 // "Queen Isa#EUW" → "queenisa#euw" : majuscules et espaces ne comptent pas
 const normId = (riotId) => (riotId || "").replace(/\s+/g, "").toLowerCase();
 
-// Type d'une game : celui de son rendez-vous ; sans rendez-vous, une game
-// perso compte comme un scrim, le reste comme de la flex.
+// Type d'une game : celui de son rendez-vous. Une game jouée hors de
+// tout rendez-vous compte comme de la flex, même si c'est une game perso.
 function gameType(game) {
-  return game.events?.type || (game.is_custom ? "scrim" : "flex");
+  return game.events?.type || "flex";
 }
 
 const isWin = (game) => game.winner === game.our_side;
@@ -150,8 +150,12 @@ function draftStats(games) {
   const ourBans = new Map(), theirBans = new Map(), against = new Map();
   for (const g of games) {
     const win = isWin(g);
-    for (const champion of g.draft?.[g.our_side]?.bans || []) tally(ourBans, champion, win, { champion });
-    for (const champion of g.draft?.[otherSide(g.our_side)]?.bans || []) tally(theirBans, champion, win, { champion });
+    // En flex, on joue contre des inconnus : les bans ne disent rien de notre
+    // draft ni de celle qu'on prépare contre nous, on ne les compte pas.
+    if (gameType(g) !== "flex") {
+      for (const champion of g.draft?.[g.our_side]?.bans || []) tally(ourBans, champion, win, { champion });
+      for (const champion of g.draft?.[otherSide(g.our_side)]?.bans || []) tally(theirBans, champion, win, { champion });
+    }
     for (const p of sidePlayers(g, otherSide(g.our_side))) tally(against, p.champion, win, { champion: p.champion });
   }
   return {
@@ -373,8 +377,9 @@ function renderDraft(games) {
   const d = draftStats(games);
   const banColumns = [{ label: "Champion", cell: (r) => r.champion }, { label: "Bans", num: true, cell: (r) => String(r.games) }];
 
-  fill("#our-bans", d.ourBans.slice(0, 8), "Aucun ban relevé.", (rows) => statTable(banColumns, rows));
-  fill("#their-bans", d.theirBans.slice(0, 8), "Aucun ban relevé.", (rows) => statTable(banColumns, rows));
+  const noBans = "Aucun ban relevé en scrim ou en match officiel (les bans de flex ne sont pas comptés).";
+  fill("#our-bans", d.ourBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
+  fill("#their-bans", d.theirBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
   fill("#nemesis", d.nemesis.slice(0, 8),
     `Aucun champion adverse ne nous a battus sur au moins ${MIN_GAMES} games.`, (rows) => statTable([
       { label: "Champion adverse", cell: (r) => r.champion },
