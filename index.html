@@ -20,13 +20,20 @@
   </div>
 
   <main>
-    <!-- Compte : visible une fois connecté -->
-    <div id="user-zone" class="user-zone" hidden>
-      <img id="user-avatar" class="avatar" alt="" width="32" height="32">
-      <span id="user-name" class="user-name"></span>
-      <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+    <!-- Menu et compte, sur la même ligne -->
+    <div class="top-bar">
+      <nav class="main-nav" aria-label="Pages du site">
+        <a href="index.html" aria-current="page">Planning</a>
+        <a href="stats.html">Statistiques</a>
+      </nav>
+      <!-- Compte : visible une fois connecté -->
+      <div id="user-zone" class="user-zone" hidden>
+        <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+        <span id="user-name" class="user-name"></span>
+        <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+      </div>
     </div>
-    <!-- Un seul de ces blocs est visible à la fois (géré par app.js) -->
+    <!-- Un seul de ces blocs est visible à la fois (géré par common.js) -->
 
     <section id="view-loading" class="state">
       <p>Chargement…</p>
@@ -267,6 +274,7 @@
   <!-- Librairie Supabase (expose l'objet global `supabase`) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

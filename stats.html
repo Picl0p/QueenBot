@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Statistiques – Queen's Gambit</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- Polices : Cinzel (titres, écho à la bannière) + Figtree (texte) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <img src="assets/banniere.webp" alt="Bannière de la team Queen's Gambit" width="1983" height="793">
+  </div>
+
+  <main>
+    <!-- Menu et compte, sur la même ligne -->
+    <div class="top-bar">
+      <nav class="main-nav" aria-label="Pages du site">
+        <a href="index.html">Planning</a>
+        <a href="stats.html" aria-current="page">Statistiques</a>
+      </nav>
+      <!-- Compte : visible une fois connecté -->
+      <div id="user-zone" class="user-zone" hidden>
+        <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+        <span id="user-name" class="user-name"></span>
+        <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+      </div>
+    </div>
+    <!-- Un seul de ces blocs est visible à la fois (géré par common.js) -->
+
+    <section id="view-loading" class="state">
+      <p>Chargement…</p>
+    </section>
+
+    <section id="view-login" class="state" hidden>
+      <h1>Espace de la team</h1>
+      <p>Connecte-toi avec ton compte Discord pour voir les statistiques de la team.</p>
+      <button id="login-btn" class="btn btn-primary" type="button">Se connecter avec Discord</button>
+    </section>
+
+    <section id="view-denied" class="state" hidden>
+      <h1>Accès réservé à la team</h1>
+      <p>Ton compte Discord n'est pas encore dans la liste des membres. Envoie cet identifiant à un admin pour qu'il t'ajoute :</p>
+      <div class="id-row">
+        <code id="denied-discord-id"></code>
+        <button id="copy-id-btn" class="btn btn-ghost" type="button">Copier</button>
+      </div>
+      <button id="denied-logout-btn" class="btn btn-ghost" type="button">Changer de compte</button>
+    </section>
+
+    <div id="view-app" class="stats" hidden>
+      <h1>Statistiques de la team</h1>
+
+      <!-- Filtres : s'appliquent à toute la page -->
+      <div class="filters">
+        <div class="filter">
+          <span id="filter-period-label" class="filter-label">Période</span>
+          <div id="filter-period" class="segs" role="radiogroup" aria-labelledby="filter-period-label"></div>
+        </div>
+        <div class="filter">
+          <span id="filter-type-label" class="filter-label">Type de game</span>
+          <div id="filter-type" class="segs" role="radiogroup" aria-labelledby="filter-type-label"></div>
+        </div>
+      </div>
+
+      <p id="stats-empty" class="stat-empty" hidden></p>
+
+      <div id="stats-blocks">
+
+        <section class="stat-block" aria-labelledby="summary-title">
+          <h2 id="summary-title">Bilan</h2>
+          <div id="summary-tiles" class="tiles"></div>
+          <h3 class="stat-subtitle">Forme récente <span class="optional">(la plus récente à gauche)</span></h3>
+          <ol id="form" class="form"></ol>
+        </section>
+
+        <section class="stat-block" aria-labelledby="champions-title">
+          <h2 id="champions-title">Champions et compos</h2>
+          <div class="stat-grid">
+            <div>
+              <h3 class="stat-subtitle">Nos champions les plus joués</h3>
+              <div id="champions"></div>
+            </div>
+            <div>
+              <h3 class="stat-subtitle">Meilleurs duos</h3>
+              <div id="duos"></div>
+              <h3 class="stat-subtitle">Compos complètes</h3>
+              <div id="comps"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="stat-block" aria-labelledby="draft-title">
+          <h2 id="draft-title">Draft</h2>
+          <div class="stat-grid stat-grid-3">
+            <div>
+              <h3 class="stat-subtitle">Ce qu'on banne le plus</h3>
+              <div id="our-bans"></div>
+            </div>
+            <div>
+              <h3 class="stat-subtitle">Ce qu'on nous banne le plus</h3>
+              <div id="their-bans"></div>
+            </div>
+            <div>
+              <h3 class="stat-subtitle">Contre qui on perd le plus</h3>
+              <div id="nemesis"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="stat-block" aria-labelledby="players-title">
+          <h2 id="players-title">Joueurs</h2>
+          <div id="players"></div>
+        </section>
+
+        <section class="stat-block" aria-labelledby="history-title">
+          <h2 id="history-title">Historique</h2>
+          <p class="stat-hint">Clique sur une session pour voir le détail de ses games.</p>
+          <div id="history" class="history"></div>
+        </section>
+
+      </div>
+    </div>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <!-- Librairie Supabase (expose l'objet global `supabase`) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/stats.js"></script>
+</body>
+</html>

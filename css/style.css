@@ -129,14 +129,40 @@ main {
 }
 
 
-/* ---------- Compte (sous la bannière) ---------- */
+/* ---------- Menu et compte (sous la bannière) ---------- */
+
+.top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem 1.5rem;
+  margin: .75rem 0 1.5rem;
+}
+
+.main-nav { display: flex; gap: .4rem; }
+.main-nav a {
+  padding: .4rem .9rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: var(--texte-doux);
+  font-weight: 600;
+  text-decoration: none;
+}
+.main-nav a:hover { color: var(--texte); border-color: var(--bord); }
+/* Page affichée */
+.main-nav a[aria-current="page"] {
+  color: var(--vanille-clair);
+  border-color: var(--nacre-filet);
+  background: var(--surface);
+}
 
 .user-zone {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   gap: .6rem;
-  margin: .75rem 0 1.5rem;
+  margin-left: auto;
 }
 .avatar {
   border-radius: 50%;
@@ -869,6 +895,236 @@ main {
 .toast.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+
+/* ---------- Page Statistiques ----------
+   Mêmes rôles de couleur que le reste : le violet pour les données
+   (jauges de winrate), la vanille pour ce qui est important (victoires). */
+
+.stats h1 { margin-bottom: 1rem; }
+
+/* Filtres : une ligne au-dessus de tout, ils s'appliquent à toute la page */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2rem;
+  margin-bottom: 1.5rem;
+}
+.filter-label {
+  display: block;
+  margin-bottom: .35rem;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--texte-doux);
+}
+.segs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--bord);
+  background: var(--surface);
+}
+.seg {
+  padding: .35rem .8rem;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--texte-doux);
+  font: 600 .9rem var(--font-texte);
+  cursor: pointer;
+}
+.seg:hover { color: var(--texte); }
+.seg[aria-checked="true"] { background: var(--surface-2); color: var(--vanille-clair); }
+
+.stat-block {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--bord);
+  border-radius: 16px;
+}
+.stat-subtitle {
+  font-family: var(--font-texte);
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--texte);
+  margin: 1.25rem 0 .5rem;
+}
+.stat-grid > div > .stat-subtitle:first-child { margin-top: 0; }
+.stat-empty, .stat-hint {
+  color: var(--texte-doux);
+  font-size: .9rem;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem 2rem;
+}
+.stat-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 860px) {
+  .stat-grid, .stat-grid-3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Chiffres clés */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: .75rem;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  padding: .9rem 1rem;
+  border-radius: 12px;
+  background: var(--fond);
+  border: 1px solid var(--bord);
+}
+.tile-label { font-size: .85rem; color: var(--texte-doux); }
+.tile-value { font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
+.tile-detail { font-size: .85rem; color: var(--texte-doux); }
+/* Le winrate : le seul grand chiffre de la page */
+.tile-hero { border-color: var(--nacre-filet); }
+.tile-hero .tile-value { font-size: 3rem; color: var(--vanille-clair); }
+
+/* Forme récente : V / D (la lettre porte l'info, la couleur l'appuie) */
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.form-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  font-size: .85rem;
+  font-weight: 700;
+}
+.form-chip.is-win { background: var(--vanille); color: var(--nuit); }
+.form-chip.is-loss {
+  background: var(--case-non);
+  color: var(--texte-doux);
+  box-shadow: inset 0 0 0 1px var(--bord);
+}
+
+/* Tableaux */
+.table-scroll { overflow-x: auto; }
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+}
+.stat-table th {
+  text-align: left;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--texte-doux);
+  white-space: nowrap;
+}
+.stat-table th, .stat-table td {
+  padding: .4rem .6rem .4rem 0;
+  border-bottom: 1px solid var(--bord);
+}
+.stat-table tbody tr:last-child td { border-bottom: 0; }
+.stat-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Winrate : jauge + pourcentage */
+.winrate {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  white-space: nowrap;
+}
+.meter {
+  display: block;
+  width: 4.5rem;
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(155 123 219 / .2);   /* même violet que le remplissage, plus pâle */
+  overflow: hidden;
+}
+.meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--donnee);
+}
+.winrate-value { font-variant-numeric: tabular-nums; min-width: 3.2em; }
+
+/* Joueurs */
+.player-name { font-weight: 600; margin-right: .5rem; }
+.player-role { font-size: .8rem; color: var(--texte-doux); }
+.chips { display: inline-flex; flex-wrap: wrap; gap: .3rem; }
+.chip {
+  padding: .05rem .5rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: .8rem;
+  white-space: nowrap;
+}
+
+/* Historique : une session = un bloc dépliable */
+.history { display: grid; gap: .5rem; }
+.session {
+  border: 1px solid var(--bord);
+  border-radius: 12px;
+  background: var(--fond);
+}
+.session summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .25rem 1rem;
+  padding: .7rem 1rem;
+  cursor: pointer;
+}
+.session summary:hover .session-title { color: var(--vanille-clair); }
+.session-date { color: var(--texte-doux); font-size: .85rem; min-width: 9rem; }
+.session-title { font-weight: 600; }
+.session-score {
+  margin-left: auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.game {
+  padding: 1rem;
+  border-top: 1px solid var(--bord);
+}
+.game-title {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0 0 .75rem;
+  font-size: 1rem;
+}
+.draft {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .35rem 1rem;
+  margin: 0 0 1rem;
+  font-size: .9rem;
+}
+.draft dt { color: var(--texte-doux); }
+.draft dd { margin: 0; }
+.draft-line { display: block; }
+.scoreboard { margin-bottom: 1rem; }
+.scoreboard-title { margin: 0 0 .25rem; font-size: .9rem; color: var(--texte-doux); }
+.scoreboard-title strong { color: var(--texte); }
+@media (max-width: 520px) {
+  .draft { grid-template-columns: 1fr; }
+  .draft dd { margin-bottom: .4rem; }
 }
 
 

@@ -20,6 +20,9 @@ const BOARD_END_HOUR = 24;
 // Petite icône affichée sur les cases où le coach est là
 const COACH_ICON = "♚";
 
+// Page Statistiques : date de début du filtre "Saison" (à changer à chaque saison)
+const STATS_SEASON_START = "2026-01-08";
+
 // Types de rendez-vous pour lesquels un post est créé dans le forum Discord.
 // Retire un type de la liste pour ne plus créer de post (ex. "review").
 // Le webhook du forum, lui, n'est PAS ici : il est secret et rangé dans

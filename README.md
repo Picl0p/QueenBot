@@ -10,10 +10,13 @@ Site statique (HTML/CSS/JS) branché sur Supabase.
 
 ## Structure
 
-- `index.html` : structure de la page
+- `index.html` : page Planning (rendez-vous et échiquier des dispos)
+- `stats.html` : page Statistiques (winrate, champions, draft, joueurs, historique)
 - `css/style.css` : thème (couleurs de la team en haut du fichier)
-- `js/config.js` : configuration Supabase et plage horaire de l'échiquier
-- `js/app.js` : connexion Discord, planning, échiquier des dispos
+- `js/config.js` : configuration Supabase, plage horaire de l'échiquier, début de saison
+- `js/common.js` : ce que les deux pages partagent (connexion Discord, session)
+- `js/app.js` : planning, échiquier des dispos, posts Discord
+- `js/stats.js` : calcul et affichage des statistiques
 - `assets/` : logo, favicon, bannière
 - `sql/` : migrations Supabase, à exécuter dans l'ordre (SQL Editor)
 - `scripts/notify.py` : notifications Discord planifiées (GitHub Actions)
