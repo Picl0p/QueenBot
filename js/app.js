@@ -776,10 +776,10 @@ function splitCoaches(row, coaches) {
   };
 }
 
-// "+ coach", "+ coach (à éviter)" ou "" pour un créneau
+// Coach présent sur un créneau : "Pseudo", "Pseudo (à éviter)", ou "" s'il n'est pas là
 function coachNote(slot) {
-  if (slot?.coaches.length) return "+ coach";
-  if (slot?.coaches_maybe.length) return "+ coach (à éviter)";
+  if (slot?.coaches.length) return slot.coaches.join(", ");
+  if (slot?.coaches_maybe.length) return `${slot.coaches_maybe.join(", ")} (à éviter)`;
   return "";
 }
 
@@ -887,12 +887,9 @@ function viewCell(key, dayIndex, label, shade, total) {
   if (m) ariaLabel += `, ${m} à éviter`;
   if (total && n >= total) ariaLabel += ", toute l'équipe";
 
-  // Coach : icône dans le coin, plus pâle s'il a marqué le créneau "à éviter"
+  // Coach : icône à côté des chiffres, plus pâle s'il a marqué le créneau "à éviter"
   const coach = coachNote(slot);
-  if (coach) {
-    classes.push("has-coach");
-    ariaLabel += `, ${coach.slice(2)}`;
-  }
+  if (coach) ariaLabel += `, coach ${coach}`;
 
   const button = el("button", {
     type: "button",
@@ -901,11 +898,11 @@ function viewCell(key, dayIndex, label, shade, total) {
     "aria-pressed": "false",
   },
     nobody && state.submissions.length ? "✕" : null,
+    n > 0 ? el("span", { class: "sq-count", text: String(n) }) : null,
+    m > 0 ? el("span", { class: "sq-maybe", text: `+${m}` }) : null,
     coach
       ? el("span", { class: `sq-coach${slot.coaches.length ? "" : " is-maybe"}`, "aria-hidden": "true", text: COACH_ICON })
-      : null,
-    n > 0 ? el("span", { class: "sq-count", text: String(n) }) : null,
-    m > 0 ? el("span", { class: "sq-maybe", text: `+${m}` }) : null
+      : null
   );
 
   // Intensité du violet proportionnelle au nombre de joueurs dispo
@@ -943,11 +940,11 @@ function showSlot(cell) {
   let text;
   const coach = coachNote(slot);
   if (n === 0 && m === 0) {
-    text = `Aucun joueur n'est dispo ${when}${coach ? ` (${coach.slice(2)} seulement)` : ""}.`;
+    text = `Aucun joueur n'est dispo ${when}${coach ? ` (${coach} seulement)` : ""}.`;
   } else {
     text = `${when.charAt(0).toUpperCase() + when.slice(1)} : ${n} sur ${teamSize()} dispo`;
     if (n) text += ` (${slot.pseudos.join(", ")})`;
-    if (coach) text += ` ${coach}`;
+    if (coach) text += ` + ${coach}`;
     if (m) text += `, à éviter pour ${slot.pseudos_maybe.join(", ")}`;
     text += ".";
   }

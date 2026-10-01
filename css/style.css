@@ -536,15 +536,11 @@ main {
 }
 .sq.is-full .sq-maybe { color: var(--nuit); }
 
-/* Le coach est là : petite icône dans le coin en haut à gauche */
-.sq.has-coach { position: relative; }
+/* Le coach est là : icône à droite des chiffres */
 .sq-coach {
-  position: absolute;
-  top: 1px;
-  left: 3px;
-  font-size: .65rem;
+  margin-left: .2rem;
+  font-size: 1.05em;
   font-weight: 400;
-  line-height: 1;
   color: var(--vanille-clair);
 }
 .sq-coach.is-maybe { opacity: .45; }
