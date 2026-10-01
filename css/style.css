@@ -479,8 +479,8 @@ main {
   padding-right: .4rem;
   white-space: nowrap;
 }
-/* Second plateau : la journée du samedi et du dimanche. Deux colonnes
-   seulement, donc moins large que le plateau de la semaine. */
+/* Second plateau : la journée du samedi et du dimanche, couchée (heures
+   en colonnes, deux lignes) et coupée en bandes de 4 heures. */
 .weekend-block {
   margin-top: 1rem;
   padding-top: .75rem;
@@ -493,10 +493,10 @@ main {
   color: var(--texte-doux);
   margin: 0 0 .5rem;
 }
-.board-weekend {
-  width: 45%;
-  min-width: 12rem;
-}
+.weekend-bands { display: grid; gap: .6rem; }
+/* La première colonne porte "sam. 4" : un peu plus large que celle des heures */
+.board.board-wide thead th:first-child { width: 3.4rem; }
+.board-wide thead th { text-align: left; padding-left: .2rem; }
 
 /* Les demi-heures restent discrètes : les heures pleines servent de repères */
 .board tr.half-hour th { font-size: .7rem; opacity: .6; }

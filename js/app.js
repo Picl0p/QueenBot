@@ -795,7 +795,7 @@ function renderBoard() {
   const evening = boardSlots().filter((s) => s.hour >= BOARD_START_HOUR);
   const daytime = boardSlots().filter((s) => s.hour < BOARD_START_HOUR);
   buildBoard($("#board"), [0, 1, 2, 3, 4, 5, 6], evening, total);
-  buildBoard($("#board-weekend"), [5, 6], daytime, total);
+  buildWeekendBoard($("#board-weekend"), daytime, total);
   $("#weekend-block").hidden = daytime.length === 0;
 
   if (!state.editing) {
@@ -825,28 +825,65 @@ function buildBoard(table, dayIndexes, slots, total) {
   // Corps : une ligne par demi-heure
   const body = el("tbody");
   slots.forEach(({ hour, minute }, rowIndex) => {
-    const label = slotLabel(hour, minute);
-    const row = el("tr", { class: minute ? "half-hour" : "" }, el("th", { scope: "row", text: label }));
+    const row = el("tr", { class: minute ? "half-hour" : "" }, el("th", { scope: "row", text: slotLabel(hour, minute) }));
 
     for (const i of dayIndexes) {
-      const key = slotKey(toISODate(addDays(state.weekStart, i)), hour, minute);
       // Alternance des cases, comme sur un vrai échiquier
-      const shade = (i + rowIndex) % 2 ? "sq-light" : "sq-dark";
-      const button = state.editing
-        ? editCell(key, i, label, shade)
-        : viewCell(key, i, label, shade, total);
-      button.dataset.key = key;
-      button.dataset.dayIndex = String(i);
-      button.dataset.hour = String(hour);
-      button.dataset.minute = String(minute);
-      if (state.eventMap.has(key)) button.classList.add("has-event");
-      row.append(el("td", {}, button));
+      row.append(el("td", {}, boardCell(i, hour, minute, (i + rowIndex) % 2, total)));
     }
 
     body.append(row);
   });
 
   table.replaceChildren(el("thead", {}, headRow), body);
+}
+
+// Une case d'un plateau, en consultation ou en saisie selon le mode
+function boardCell(dayIndex, hour, minute, light, total) {
+  const key = slotKey(toISODate(addDays(state.weekStart, dayIndex)), hour, minute);
+  const label = slotLabel(hour, minute);
+  const shade = light ? "sq-light" : "sq-dark";
+  const button = state.editing
+    ? editCell(key, dayIndex, label, shade)
+    : viewCell(key, dayIndex, label, shade, total);
+  button.dataset.key = key;
+  button.dataset.dayIndex = String(dayIndex);
+  button.dataset.hour = String(hour);
+  button.dataset.minute = String(minute);
+  if (state.eventMap.has(key)) button.classList.add("has-event");
+  return button;
+}
+
+// Journée du week-end : plateau couché, pour qu'il ne s'étire pas en
+// hauteur. Les heures sont en colonnes et il n'y a que deux lignes (samedi,
+// dimanche). On le coupe en bandes de 4 heures (10h–14h, 14h–18h) pour
+// que les cases gardent une taille confortable, même sur téléphone.
+const WEEKEND_BAND_SLOTS = 8;   // 8 demi-heures par bande
+
+function buildWeekendBoard(container, slots, total) {
+  const bands = [];
+  for (let i = 0; i < slots.length; i += WEEKEND_BAND_SLOTS) {
+    const band = slots.slice(i, i + WEEKEND_BAND_SLOTS);
+
+    // En-tête : une heure pleine couvre ses deux demi-heures
+    const headRow = el("tr", {}, el("th", { scope: "col" }));
+    for (const { hour, minute } of band) {
+      if (minute === 0) headRow.append(el("th", { scope: "col", colspan: "2", text: slotLabel(hour, 0) }));
+    }
+
+    const body = el("tbody");
+    [5, 6].forEach((dayIndex, rowIndex) => {
+      const date = addDays(state.weekStart, dayIndex);
+      const row = el("tr", {}, el("th", { scope: "row", text: `${JOURS_COURTS[dayIndex]} ${date.getDate()}` }));
+      band.forEach(({ hour, minute }, columnIndex) => {
+        row.append(el("td", {}, boardCell(dayIndex, hour, minute, (rowIndex + columnIndex) % 2, total)));
+      });
+      body.append(row);
+    });
+
+    bands.push(el("table", { class: "board board-wide" }, el("thead", {}, headRow), body));
+  }
+  container.replaceChildren(...bands);
 }
 
 // Associe chaque case "jour|heure|minute" aux rendez-vous qui l'occupent.
