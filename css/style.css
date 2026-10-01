@@ -491,6 +491,20 @@ main {
 }
 .sq.is-full .sq-maybe { color: var(--nuit); }
 
+/* Le coach est là : petite icône dans le coin en haut à gauche */
+.sq.has-coach { position: relative; }
+.sq-coach {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  font-size: .65rem;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--vanille-clair);
+}
+.sq-coach.is-maybe { opacity: .45; }
+.sq.is-full .sq-coach { color: var(--nuit); }
+
 /* Pas dispo : case plus sombre que le fond, avec une croix */
 .sq.is-no,
 .swatch-no {
@@ -737,10 +751,74 @@ main {
   grid-template-columns: 1.4fr 1fr 1fr;
   gap: .75rem;
 }
+.form-row-2 { grid-template-columns: 1fr 1fr; }
 @media (max-width: 520px) {
   .form-row { grid-template-columns: 1fr 1fr; }
   .form-row .field:first-child { grid-column: 1 / -1; }
+  .form-row-2 { grid-template-columns: 1fr; }
 }
+
+/* Infos de session (scrims et matchs officiels) */
+.form-section {
+  font-family: var(--font-texte);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texte);
+  margin: .5rem 0 .75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bord);
+}
+.field-hint {
+  margin: .35rem 0 0;
+  font-size: .8rem;
+  color: var(--texte-doux);
+}
+
+/* Roster adverse : un rôle par ligne, libellé à gauche, flèches à droite */
+.roster {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: .5rem .75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.roster label { font-weight: 600; font-size: .9rem; }
+.roster input {
+  width: 100%;
+  padding: .45rem .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--fond);
+  color: var(--texte);
+  font: inherit;
+}
+.roster input:focus-visible { border-color: var(--vanille); }
+
+/* Flèches pour échanger deux joueurs de rôle */
+.roster-arrows { display: flex; gap: .25rem; }
+.roster-arrow {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--bord);
+  background: var(--surface);
+  color: var(--texte);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.roster-arrow:hover { border-color: var(--vanille-clair); background: var(--surface-2); }
+.roster-arrow.is-hidden { visibility: hidden; }
+
+/* Liste des rendez-vous : statut et lien vers le post Discord */
+.event-status { color: var(--poudre); font-weight: 600; }
+.event.is-cancelled .event-title { text-decoration: line-through; color: var(--texte-doux); }
+.event-discord {
+  color: var(--lavande);
+  text-underline-offset: 3px;
+}
+.event-discord:hover { color: var(--nacre); }
 
 
 /* ---------- Message temporaire ---------- */

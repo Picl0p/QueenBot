@@ -228,6 +228,7 @@ def planning(today):
     events = supabase("events", {
         "select": "title,type,starts_at,ends_at,opponent,notes",
         "starts_at": [f"gte.{iso_utc(day_start)}", f"lt.{iso_utc(day_end)}"],
+        "status": "neq.annule",   # les sessions annulées ne sont pas annoncées
         "order": "starts_at",
     })
     if not events:

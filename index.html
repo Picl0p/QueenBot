@@ -167,9 +167,80 @@
         </div>
       </div>
 
-      <div class="field" id="ev-opponent-field">
-        <label for="ev-opponent">Adversaire</label>
-        <input id="ev-opponent" type="text" maxlength="60" autocomplete="off">
+      <!-- Infos de session : scrims et matchs officiels uniquement (géré par app.js).
+           Tout est facultatif : on complète au fur et à mesure, le post Discord suit. -->
+      <div id="ev-session-fields">
+        <div class="form-row form-row-2">
+          <div class="field">
+            <label for="ev-status">Statut</label>
+            <select id="ev-status">
+              <option value="confirme">Confirmé</option>
+              <option value="en_attente">En attente</option>
+              <option value="annule">Annulé</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="ev-format">Format <span class="optional">(facultatif)</span></label>
+            <input id="ev-format" type="text" maxlength="60" autocomplete="off" list="ev-format-list" placeholder="Ex. : 3 games fearless">
+            <datalist id="ev-format-list">
+              <option value="3 games fearless"></option>
+              <option value="BO1"></option>
+              <option value="BO3"></option>
+              <option value="BO3 fearless"></option>
+              <option value="BO5"></option>
+              <option value="BO5 fearless"></option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="field">
+            <label for="ev-side">Side <span class="optional">(vide = pas encore choisi)</span></label>
+            <input id="ev-side" type="text" maxlength="80" autocomplete="off" list="ev-side-list">
+            <datalist id="ev-side-list">
+              <option value="Blue side"></option>
+              <option value="Red side"></option>
+              <option value="Blue side en game 1, puis alterné"></option>
+              <option value="Red side en game 1, puis alterné"></option>
+            </datalist>
+          </div>
+          <div class="field">
+            <label for="ev-draft-url">Lien draft <span class="optional">(facultatif)</span></label>
+            <input id="ev-draft-url" type="url" maxlength="300" autocomplete="off" placeholder="https://drafter.lol/draft/…">
+          </div>
+        </div>
+
+        <h3 class="form-section">Adversaire <span class="optional">(à compléter dès qu'on sait)</span></h3>
+
+        <div class="form-row form-row-2">
+          <div class="field" id="ev-opponent-field">
+            <label for="ev-opponent">Nom de l'équipe</label>
+            <input id="ev-opponent" type="text" maxlength="60" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="ev-contact">Contact Discord</label>
+            <input id="ev-contact" type="text" maxlength="60" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="ev-opgg">Lien multi OP.GG</label>
+          <input id="ev-opgg" type="url" maxlength="600" autocomplete="off" placeholder="https://op.gg/fr/lol/multisearch/euw?summoners=…">
+          <p class="field-hint">Colle le lien : les cinq joueurs ci-dessous sont remplis automatiquement, dans l'ordre du lien. S'il n'est pas dans l'ordre des rôles, les flèches échangent deux joueurs.</p>
+        </div>
+
+        <div class="roster">
+          <label for="ev-roster-top">Top</label>
+          <input id="ev-roster-top" type="text" maxlength="40" autocomplete="off">
+          <label for="ev-roster-jungle">Jungle</label>
+          <input id="ev-roster-jungle" type="text" maxlength="40" autocomplete="off">
+          <label for="ev-roster-mid">Mid</label>
+          <input id="ev-roster-mid" type="text" maxlength="40" autocomplete="off">
+          <label for="ev-roster-adc">ADC</label>
+          <input id="ev-roster-adc" type="text" maxlength="40" autocomplete="off">
+          <label for="ev-roster-support">Supp</label>
+          <input id="ev-roster-support" type="text" maxlength="40" autocomplete="off">
+        </div>
       </div>
 
       <div class="field">

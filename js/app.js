@@ -8,6 +8,7 @@
 //   2. Connexion à Supabase
 //   3. Gestion de la session (connecté / pas membre / pas connecté)
 //   4. Rendez-vous : affichage et planification (admins)
+//      4 bis. Post Discord de chaque rendez-vous (forum)
 //   5. Échiquier des dispos (consultation et saisie)
 //   6. Branchement des boutons, puis démarrage
 // =====================================================================
@@ -69,13 +70,21 @@ const slotKey = (day, hour, minute) => `${day}|${hour}|${minute}`;
 // 20, 0 → "20h" ; 20, 30 → "20h30"
 const slotLabel = (hour, minute) => (minute ? `${hour}h${minute}` : `${hour}h`);
 
-// Créneaux affichés sur l'échiquier : 18h, 18h30, 19h, … jusqu'à la fin de plage
+// Lignes de l'échiquier : une par demi-heure, depuis l'heure de début la
+// plus tôt (celle du week-end) jusqu'à la fin de plage.
 function boardSlots() {
   const slots = [];
-  for (let hour = BOARD_START_HOUR; hour < BOARD_END_HOUR; hour++) {
+  const first = Math.min(BOARD_START_HOUR, BOARD_WEEKEND_START_HOUR);
+  for (let hour = first; hour < BOARD_END_HOUR; hour++) {
     slots.push({ hour, minute: 0 }, { hour, minute: 30 });
   }
   return slots;
+}
+
+// Le créneau existe-t-il ce jour-là ? (dayIndex : lundi = 0 … dimanche = 6)
+// En semaine, les lignes d'avant 18h restent vides : elles ne servent qu'au week-end.
+function slotOpen(dayIndex, hour) {
+  return hour >= (dayIndex >= 5 ? BOARD_WEEKEND_START_HOUR : BOARD_START_HOUR);
 }
 
 const JOURS_COURTS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
@@ -248,8 +257,18 @@ async function logout() {
 
 const isAdmin = () => Boolean(state.player?.is_admin);
 
-// Types pour lesquels le champ "Adversaire" a un sens
+// Types pour lesquels les infos de session (adversaire, format, draft…) ont un sens
 const TYPES_AVEC_ADVERSAIRE = ["scrim", "match_officiel"];
+
+// Colonnes d'un rendez-vous dont le formulaire et le post Discord ont besoin
+const EVENT_COLUMNS = "id, title, type, starts_at, ends_at, opponent, notes, status, format, side, "
+  + "draft_url, opponent_opgg, opponent_roster, opponent_contact, "
+  + "discord_thread_id, discord_message_id, discord_thread_url";
+
+const STATUS_LABELS = { confirme: "Confirmé ✅", en_attente: "En attente ⏳", annule: "Annulé ❌" };
+
+// Rôles du roster adverse : clé en base → libellé affiché
+const ROSTER_ROLES = [["top", "Top"], ["jungle", "Jungle"], ["mid", "Mid"], ["adc", "ADC"], ["support", "Supp"]];
 
 // Date → "20:30" (heure locale)
 function toHHMM(d) {
@@ -268,7 +287,7 @@ async function loadEvents() {
 
   const { data, error } = await db
     .from("events")
-    .select("id, title, type, starts_at, ends_at, opponent, notes")
+    .select(EVENT_COLUMNS)
     .gte("starts_at", today.toISOString())
     .order("starts_at")
     .limit(8);
@@ -295,13 +314,18 @@ function renderEvents(events) {
     const time = toHHMM(start) + (end ? ` à ${toHHMM(end)}` : "");
 
     list.append(
-      el("li", { class: `event type-${ev.type}` },
+      el("li", { class: `event type-${ev.type}${ev.status === "annule" ? " is-cancelled" : ""}` },
         el("time", { class: "event-date", datetime: ev.starts_at, text: start.toLocaleDateString("fr-FR", fmtDay) }),
         el("span", { class: "event-time", text: time }),
         el("p", { class: "event-title", text: ev.title }),
         el("p", { class: "event-meta" },
           el("span", { class: "event-type", text: TYPE_LABELS[ev.type] || ev.type }),
-          ev.opponent ? el("span", { class: "event-opponent", text: `contre ${ev.opponent}` }) : null
+          ev.opponent ? el("span", { class: "event-opponent", text: `contre ${ev.opponent}` }) : null,
+          // "Confirmé" est le cas normal : on n'affiche le statut que s'il est différent
+          ev.status !== "confirme" ? el("span", { class: "event-status", text: STATUS_LABELS[ev.status] }) : null,
+          ev.discord_thread_url
+            ? el("a", { class: "event-discord", href: ev.discord_thread_url, target: "_blank", rel: "noopener", text: "Post Discord" })
+            : null
         ),
         ev.notes ? el("p", { class: "event-notes", text: ev.notes }) : null,
         isAdmin()
@@ -330,6 +354,13 @@ function openEventDialog(ev = null, preset = null) {
     $("#ev-end").value = end ? toHHMM(end) : "";
     $("#ev-opponent").value = ev.opponent || "";
     $("#ev-notes").value = ev.notes || "";
+    $("#ev-status").value = ev.status || "confirme";
+    $("#ev-format").value = ev.format || "";
+    $("#ev-side").value = ev.side || "";
+    $("#ev-draft-url").value = ev.draft_url || "";
+    $("#ev-opgg").value = ev.opponent_opgg || "";
+    $("#ev-contact").value = ev.opponent_contact || "";
+    for (const [role] of ROSTER_ROLES) $(`#ev-roster-${role}`).value = ev.opponent_roster?.[role] || "";
   } else {
     const date = preset?.date || new Date();
     const hour = preset?.hour ?? 20;
@@ -341,6 +372,9 @@ function openEventDialog(ev = null, preset = null) {
     $("#ev-end").value = `${String((hour + 2) % 24).padStart(2, "0")}:${mm}`;
     $("#ev-opponent").value = "";
     $("#ev-notes").value = "";
+    $("#ev-status").value = "confirme";
+    for (const id of ["format", "side", "draft-url", "opgg", "contact"]) $(`#ev-${id}`).value = "";
+    for (const [role] of ROSTER_ROLES) $(`#ev-roster-${role}`).value = "";
   }
 
   $("#event-dialog-title").textContent = ev ? "Modifier le rendez-vous" : "Nouveau rendez-vous";
@@ -354,7 +388,73 @@ function openEventDialog(ev = null, preset = null) {
 function updateTitlePlaceholder() {
   const type = $("#ev-type").value;
   $("#ev-title").placeholder = TYPE_LABELS[type];
-  $("#ev-opponent-field").hidden = !TYPES_AVEC_ADVERSAIRE.includes(type);
+  $("#ev-session-fields").hidden = !TYPES_AVEC_ADVERSAIRE.includes(type);
+}
+
+// Lien multi OP.GG → liste des pseudos, dans l'ordre du lien.
+//   ".../multisearch/euw?summoners=thay%2388685%2CRGA+Spik0%231176"  →  ["thay", "RGA Spik0"]
+// Marche aussi avec les sites qui mettent les pseudos dans le chemin
+// (".../euw/Pseudo-TAG,Autre-TAG").
+function parseMultiLink(link) {
+  let url;
+  try { url = new URL(link); } catch { return []; }
+
+  // searchParams décode déjà %23 (#), %2C (,) et + (espace)
+  let raw = url.searchParams.get("summoners") || "";
+  let tagSeparator = /#.*$/;
+  if (!raw) {
+    const segment = url.pathname.split("/").find((part) => part.includes(",") || part.includes("%2C"));
+    if (!segment) return [];
+    try { raw = decodeURIComponent(segment); } catch { return []; }
+    tagSeparator = /[#-][^#-]*$/;
+  }
+  return raw.split(",")
+    .map((name) => name.trim().replace(tagSeparator, "").trim())
+    .filter(Boolean)
+    .slice(0, ROSTER_ROLES.length);
+}
+
+// Quand on colle le lien OP.GG, remplit le roster… sauf si quelqu'un a
+// déjà commencé à le saisir (on n'écrase jamais ce qui a été tapé).
+function fillRosterFromLink() {
+  const inputs = ROSTER_ROLES.map(([role]) => $(`#ev-roster-${role}`));
+  if (inputs.some((input) => input.value.trim())) return;
+  parseMultiLink($("#ev-opgg").value.trim()).forEach((name, i) => { inputs[i].value = name; });
+}
+
+// Le lien n'est pas toujours dans l'ordre top → supp : les flèches à côté
+// de chaque joueur l'échangent avec son voisin du dessus ou du dessous.
+function swapRoster(i, j) {
+  const a = $(`#ev-roster-${ROSTER_ROLES[i][0]}`);
+  const b = $(`#ev-roster-${ROSTER_ROLES[j][0]}`);
+  [a.value, b.value] = [b.value, a.value];
+}
+
+// Ajoute les flèches ↑ ↓ après chaque champ du roster (une fois, au démarrage)
+function addRosterArrows() {
+  const last = ROSTER_ROLES.length - 1;
+  ROSTER_ROLES.forEach(([role, label], i) => {
+    const arrow = (text, target, action) => el("button", {
+      type: "button",
+      // Pas de ↑ sur la première ligne ni de ↓ sur la dernière (place gardée pour l'alignement)
+      class: `roster-arrow${target < 0 || target > last ? " is-hidden" : ""}`,
+      "aria-label": `${action} le joueur ${label}`,
+      disabled: target < 0 || target > last,
+      text,
+      onclick: () => swapRoster(i, target),
+    });
+    $(`#ev-roster-${role}`).after(
+      el("div", { class: "roster-arrows" }, arrow("↑", i - 1, "Monter"), arrow("↓", i + 1, "Descendre"))
+    );
+  });
+}
+
+// Lien facultatif : null si vide, erreur si ça ne ressemble pas à un lien
+function readUrlField(selector, label) {
+  const value = $(selector).value.trim();
+  if (!value) return null;
+  if (!/^https?:\/\/\S+$/i.test(value)) throw new Error(`${label} : colle un lien complet (qui commence par https://).`);
+  return value;
 }
 
 function eventFormError(message) {
@@ -382,27 +482,71 @@ async function saveEvent(e) {
     if (end <= start) end.setDate(end.getDate() + 1);
   }
 
+  // Infos de session : seulement pour les scrims et matchs officiels
+  const session = TYPES_AVEC_ADVERSAIRE.includes(type);
+  const text = (selector) => (session ? $(selector).value.trim() || null : null);
+
+  let draftUrl = null, opggUrl = null;
+  if (session) {
+    try {
+      draftUrl = readUrlField("#ev-draft-url", "Lien draft");
+      opggUrl = readUrlField("#ev-opgg", "Lien OP.GG");
+    } catch (err) {
+      return eventFormError(err.message);
+    }
+  }
+
+  // { top: "Thay (sub)", jungle: "Spik0", … } en ne gardant que les rôles remplis
+  const roster = {};
+  for (const [role] of ROSTER_ROLES) {
+    const name = text(`#ev-roster-${role}`);
+    if (name) roster[role] = name;
+  }
+
   const payload = {
     type,
     title: $("#ev-title").value.trim() || TYPE_LABELS[type],
     starts_at: start.toISOString(),   // stocké en UTC dans la base
     ends_at: end ? end.toISOString() : null,
-    opponent: TYPES_AVEC_ADVERSAIRE.includes(type) ? ($("#ev-opponent").value.trim() || null) : null,
+    opponent: text("#ev-opponent"),
     notes: $("#ev-notes").value.trim() || null,
+    status: session ? $("#ev-status").value : "confirme",
+    format: text("#ev-format"),
+    side: text("#ev-side"),
+    draft_url: draftUrl,
+    opponent_opgg: opggUrl,
+    opponent_roster: Object.keys(roster).length ? roster : null,
+    opponent_contact: text("#ev-contact"),
   };
 
   const button = $("#ev-save");
   button.disabled = true;
 
-  const { error } = state.editingEvent
-    ? await db.from("events").update(payload).eq("id", state.editingEvent.id)
-    : await db.from("events").insert(payload);
+  // .select().single() : la base renvoie le rendez-vous enregistré
+  const previous = state.editingEvent;
+  const { data: saved, error } = previous
+    ? await db.from("events").update(payload).eq("id", previous.id).select(EVENT_COLUMNS).single()
+    : await db.from("events").insert(payload).select(EVENT_COLUMNS).single();
 
+  if (error) {
+    button.disabled = false;
+    return eventFormError(`L'enregistrement a échoué : ${error.message}`);
+  }
+
+  // Le rendez-vous est enregistré : un souci côté Discord ne doit pas
+  // faire croire le contraire, on le signale juste par un message.
+  let message;
+  try {
+    message = await syncDiscordPost(saved, previous);
+  } catch (err) {
+    console.error(err);
+    message = `Rendez-vous enregistré, mais le post Discord a échoué (${err.message})`;
+  }
   button.disabled = false;
-  if (error) return eventFormError(`L'enregistrement a échoué : ${error.message}`);
 
   $("#event-dialog").close();
   await Promise.all([loadEvents(), loadBoard()]);
+  if (message) showToast(message);
 }
 
 async function deleteEvent() {
@@ -412,8 +556,215 @@ async function deleteEvent() {
   const { error } = await db.from("events").delete().eq("id", ev.id);
   if (error) return eventFormError(`La suppression a échoué : ${error.message}`);
 
+  // Prévient dans le post Discord (qui, lui, reste en place)
+  try {
+    await announceDeletion(ev);
+  } catch (err) {
+    console.error(err);
+  }
+
   $("#event-dialog").close();
   await Promise.all([loadEvents(), loadBoard()]);
+}
+
+
+// ---------------------------------------------------------------------
+// 4 bis. Post Discord de chaque rendez-vous
+//
+// À chaque rendez-vous correspond un post dans le forum Discord :
+//   * créé à l'ajout du rendez-vous ;
+//   * son premier message est réécrit à chaque modification (pratique
+//     quand on n'apprend l'adversaire qu'à la dernière minute), et un
+//     petit message dans le post signale ce qui a changé ;
+//   * les résultats des games y sont ensuite postés par le companion
+//     (scripts/lcu_companion.py).
+//
+// On passe par un webhook Discord, appelé directement depuis le
+// navigateur de l'admin. Son URL est secrète : elle n'est pas dans le
+// code, la base ne la donne qu'aux admins (fonction discord_forum_config).
+// ---------------------------------------------------------------------
+
+// Demandée une seule fois par chargement de page
+let discordConfigPromise = null;
+
+function discordConfig() {
+  discordConfigPromise ??= (async () => {
+    const { data, error } = await db.rpc("discord_forum_config");
+    if (error) throw new Error(error.message);
+    if (!data?.webhook_url) return null;
+    return {
+      // Sans paramètres ni "/" final, pour pouvoir y ajouter les nôtres
+      webhook: data.webhook_url.trim().split("?")[0].replace(/\/+$/, ""),
+      roleId: data.role_id || null,
+    };
+  })();
+  // En cas d'échec, on réessaiera au prochain enregistrement
+  discordConfigPromise.catch(() => { discordConfigPromise = null; });
+  return discordConfigPromise;
+}
+
+async function discordRequest(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    const err = new Error(`Discord ${res.status}${detail?.message ? ` : ${detail.message}` : ""}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+// Neutralise la mise en forme Discord dans un texte saisi (un pseudo
+// comme "xX_Dark_Xx" passerait sinon en italique).
+const mdEscape = (text) => String(text).replace(/([\\*_~`|>\[\]])/g, "\\$1");
+
+// 21:00 → "21h00"
+const heureDiscord = (d) => `${d.getHours()}h${String(d.getMinutes()).padStart(2, "0")}`;
+
+// Titre du post (100 caractères max chez Discord).
+// ⚠️ Un webhook ne peut pas renommer un post : le titre garde la date et
+// l'adversaire connus à la création. Ensuite, c'est à renommer à la main.
+function discordPostTitle(ev) {
+  const start = new Date(ev.starts_at);
+  const day = start.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  const versus = ev.opponent ? ` vs ${ev.opponent}` : "";
+  return `${ev.title}${versus} · ${day} ${heureDiscord(start)}`.slice(0, 100);
+}
+
+// Premier message du post
+function discordPostContent(ev, roleId) {
+  const start = new Date(ev.starts_at);
+  const end = ev.ends_at ? new Date(ev.ends_at) : null;
+  const date = start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const lines = [];
+
+  if (TYPES_AVEC_ADVERSAIRE.includes(ev.type)) {
+    lines.push(
+      `Statut : ${STATUS_LABELS[ev.status]}`,
+      `Date : ${date}`,
+      `Heure de la draft : ${heureDiscord(start)}`,
+      `Format : ${ev.format ? mdEscape(ev.format) : "à définir"}`,
+      `Side : ${ev.side ? mdEscape(ev.side) : "Personne n'a choisi le side pour le moment"}`,
+      `Lien draft : ${ev.draft_url || "à venir"}`,
+      "",
+      "**Infos Adversaires**"
+    );
+
+    const name = ev.opponent ? mdEscape(ev.opponent) : null;
+    if (ev.opponent_opgg) lines.push(`Nom et OP.GG : [${name || "OP.GG"}](${ev.opponent_opgg})`);
+    else lines.push(`Nom : ${name || "à confirmer"}`);
+
+    for (const [role, label] of ROSTER_ROLES) {
+      const player = ev.opponent_roster?.[role];
+      if (player) lines.push(`> ${label} : ${mdEscape(player)}`);
+    }
+    if (ev.opponent_contact) lines.push(`Contact : \`\`${ev.opponent_contact.replaceAll("`", "")}\`\``);
+  } else {
+    lines.push(
+      `Date : ${date}`,
+      `Heure : ${heureDiscord(start)}${end ? ` – ${heureDiscord(end)}` : ""}`
+    );
+  }
+
+  if (ev.notes) lines.push("", ev.notes);
+  if (roleId) lines.push("", `<@&${roleId}>`);
+  return lines.join("\n").slice(0, 2000);   // limite de Discord
+}
+
+// Ce qui a changé entre deux versions d'un rendez-vous, en clair
+function describeChanges(before, after) {
+  const changes = [];
+  if (before.status !== after.status) changes.push(`statut → ${STATUS_LABELS[after.status]}`);
+  if (before.starts_at !== after.starts_at) changes.push("date / heure");
+
+  const fields = [
+    ["format", "format"], ["side", "side"], ["draft_url", "lien draft"],
+    ["opponent", "adversaire"], ["opponent_opgg", "lien OP.GG"],
+    ["opponent_contact", "contact"], ["notes", "notes"],
+  ];
+  for (const [key, label] of fields) {
+    if ((before[key] || "") !== (after[key] || "")) changes.push(label);
+  }
+  if (ROSTER_ROLES.some(([role]) => (before.opponent_roster?.[role] || "") !== (after.opponent_roster?.[role] || ""))) {
+    changes.push("roster adverse");
+  }
+  return changes;
+}
+
+// Crée le post du rendez-vous, ou le met à jour s'il existe déjà.
+// Renvoie le message à afficher à l'admin (ou rien).
+async function syncDiscordPost(ev, previous) {
+  const hasPost = Boolean(ev.discord_thread_id && ev.discord_message_id);
+  if (!hasPost) {
+    if (!DISCORD_POST_TYPES.includes(ev.type) || ev.status === "annule") return;
+    // Pas de post pour un rendez-vous déjà passé (ex. correction après coup)
+    if (new Date(ev.ends_at || ev.starts_at) < Date.now() - 6 * 3600 * 1000) return;
+  }
+
+  const config = await discordConfig();
+  if (!config) return "Rendez-vous enregistré (pas de post Discord : le webhook du forum n'est pas configuré)";
+
+  const message = {
+    content: discordPostContent(ev, config.roleId),
+    // Seul le rôle de la team peut être mentionné, jamais @everyone
+    allowed_mentions: { parse: [], roles: config.roleId ? [config.roleId] : [] },
+    flags: 4,   // pas d'aperçu des liens (OP.GG, drafter)
+  };
+
+  if (hasPost) {
+    try {
+      await discordRequest("PATCH",
+        `${config.webhook}/messages/${ev.discord_message_id}?thread_id=${ev.discord_thread_id}`, message);
+    } catch (err) {
+      if (err.status !== 404) throw err;
+      // Le post a été supprimé dans Discord : on en recrée un
+      return createDiscordPost(ev, config, message);
+    }
+    const changes = previous ? describeChanges(previous, ev) : [];
+    if (changes.length) {
+      await discordRequest("POST", `${config.webhook}?thread_id=${ev.discord_thread_id}`, {
+        content: `📝 Infos mises à jour : ${changes.join(", ")}.`,
+        allowed_mentions: { parse: [] },
+      });
+    }
+    return "Rendez-vous et post Discord mis à jour";
+  }
+
+  return createDiscordPost(ev, config, message);
+}
+
+async function createDiscordPost(ev, config, message) {
+  // wait=true : Discord renvoie le message créé (donc l'identifiant du post)
+  const created = await discordRequest("POST", `${config.webhook}?wait=true`, {
+    ...message,
+    thread_name: discordPostTitle(ev),
+  });
+
+  // Pour le lien "Post Discord", il faut l'identifiant du serveur
+  config.guildId ??= (await discordRequest("GET", config.webhook)).guild_id;
+
+  const { error } = await db.from("events").update({
+    discord_thread_id: created.channel_id,
+    discord_message_id: created.id,
+    discord_thread_url: `https://discord.com/channels/${config.guildId}/${created.channel_id}`,
+  }).eq("id", ev.id);
+  if (error) throw new Error(`post créé mais non rattaché au rendez-vous : ${error.message}`);
+
+  return "Rendez-vous enregistré, post Discord créé";
+}
+
+async function announceDeletion(ev) {
+  if (!ev.discord_thread_id) return;
+  const config = await discordConfig();
+  if (!config) return;
+  await discordRequest("POST", `${config.webhook}?thread_id=${ev.discord_thread_id}`, {
+    content: "❌ Ce rendez-vous a été retiré du planning.",
+    allowed_mentions: { parse: [] },
+  });
 }
 
 
@@ -558,9 +909,35 @@ function renderBrushes() {
   });
 }
 
+// La base compte tout le monde, coach compris. Ici on le met à part : il
+// n'entre ni dans le nombre de dispos ni dans la liste des pseudos, et
+// la case l'indique par une petite icône.
+function splitCoaches(row, coaches) {
+  const pseudos = row.pseudos.filter((p) => !coaches.has(p));
+  const pseudosMaybe = row.pseudos_maybe.filter((p) => !coaches.has(p));
+  return {
+    ...row,
+    pseudos,
+    pseudos_maybe: pseudosMaybe,
+    n_available: pseudos.length,
+    n_maybe: pseudosMaybe.length,
+    coaches: row.pseudos.filter((p) => coaches.has(p)),
+    coaches_maybe: row.pseudos_maybe.filter((p) => coaches.has(p)),
+  };
+}
+
+// "+ coach", "+ coach (à éviter)" ou "" pour un créneau
+function coachNote(slot) {
+  if (slot?.coaches.length) return "+ coach";
+  if (slot?.coaches_maybe.length) return "+ coach (à éviter)";
+  return "";
+}
+
 function renderBoard() {
   const total = teamSize();
-  state.heatMap = new Map(state.heat.map((row) => [slotKey(row.day, row.hour, row.minute), row]));
+  const coaches = new Set(state.players.filter((p) => p.status === "coach").map((p) => p.pseudo));
+  state.heatMap = new Map(state.heat.map((row) =>
+    [slotKey(row.day, row.hour, row.minute), splitCoaches(row, coaches)]));
   state.eventMap = buildEventMap(state.weekEvents);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(state.weekStart, i));
@@ -584,6 +961,9 @@ function renderBoard() {
     const row = el("tr", { class: minute ? "half-hour" : "" }, el("th", { scope: "row", text: label }));
 
     days.forEach((d, i) => {
+      // Créneau fermé ce jour-là (matin et après-midi en semaine) : case vide
+      if (!slotOpen(i, hour)) return row.append(el("td"));
+
       const key = slotKey(toISODate(d), hour, minute);
       // Alternance des cases, comme sur un vrai échiquier
       const shade = (i + rowIndex) % 2 ? "sq-light" : "sq-dark";
@@ -605,7 +985,7 @@ function renderBoard() {
 
   if (!state.editing) {
     $("#slot-detail").textContent = state.heat.length
-      ? "Touche une case pour voir qui est dispo."
+      ? `Touche une case pour voir qui est dispo. ${COACH_ICON} : le coach est là.`
       : "Personne n'a encore indiqué de dispo pour cette semaine.";
   }
 }
@@ -648,6 +1028,13 @@ function viewCell(key, dayIndex, label, shade, total) {
   if (m) ariaLabel += `, ${m} à éviter`;
   if (total && n >= total) ariaLabel += ", toute l'équipe";
 
+  // Coach : icône dans le coin, plus pâle s'il a marqué le créneau "à éviter"
+  const coach = coachNote(slot);
+  if (coach) {
+    classes.push("has-coach");
+    ariaLabel += `, ${coach.slice(2)}`;
+  }
+
   const button = el("button", {
     type: "button",
     class: classes.join(" "),
@@ -655,6 +1042,9 @@ function viewCell(key, dayIndex, label, shade, total) {
     "aria-pressed": "false",
   },
     nobody && state.submissions.length ? "✕" : null,
+    coach
+      ? el("span", { class: `sq-coach${slot.coaches.length ? "" : " is-maybe"}`, "aria-hidden": "true", text: COACH_ICON })
+      : null,
     n > 0 ? el("span", { class: "sq-count", text: String(n) }) : null,
     m > 0 ? el("span", { class: "sq-maybe", text: `+${m}` }) : null
   );
@@ -692,11 +1082,13 @@ function showSlot(cell) {
 
   const when = `${JOURS_LONGS[dayIndex]} ${date.getDate()} à ${slotLabel(hour, minute)}`;
   let text;
+  const coach = coachNote(slot);
   if (n === 0 && m === 0) {
-    text = `Personne n'est dispo ${when}.`;
+    text = `Aucun joueur n'est dispo ${when}${coach ? ` (${coach.slice(2)} seulement)` : ""}.`;
   } else {
     text = `${when.charAt(0).toUpperCase() + when.slice(1)} : ${n} sur ${teamSize()} dispo`;
     if (n) text += ` (${slot.pseudos.join(", ")})`;
+    if (coach) text += ` ${coach}`;
     if (m) text += `, à éviter pour ${slot.pseudos_maybe.join(", ")}`;
     text += ".";
   }
@@ -746,7 +1138,7 @@ function findBestSlots(heatMap, players, weekStart, now, count = 2) {
     const present = slots.map(({ hour, minute }) => {
       const start = new Date(date);
       start.setHours(hour, minute, 0, 0);
-      if (start < now) return new Set();
+      if (start < now || !slotOpen(dayIndex, hour)) return new Set();
       const row = heatMap.get(slotKey(day, hour, minute));
       return new Set((row?.pseudos || []).filter((p) => teamPseudos.has(p)));
     });
@@ -1061,6 +1453,8 @@ $("#event-form").addEventListener("submit", saveEvent);
 $("#ev-cancel").addEventListener("click", () => $("#event-dialog").close());
 $("#ev-delete").addEventListener("click", deleteEvent);
 $("#ev-type").addEventListener("change", updateTitlePlaceholder);
+$("#ev-opgg").addEventListener("change", fillRosterFromLink);
+addRosterArrows();
 
 // Prévient si on ferme l'onglet avec des modifications non enregistrées
 window.addEventListener("beforeunload", (e) => {
