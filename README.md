@@ -45,8 +45,12 @@ droit à un post se règlent dans `js/config.js` (`DISCORD_POST_TYPES`).
 les games, à côté du client LoL. Il enregistre dans Supabase la draft, le résultat
 et les stats des 10 joueurs, puis annonce le résultat dans le post Discord de la session.
 
-Il ne garde que les games perso et les flex où au moins 4 joueurs de la team
-sont dans la même équipe.
+Il ne garde que les games perso, les flex et les normales (draft, aveugle, partie
+rapide) où au moins 4 joueurs de la team sont dans la même équipe.
+
+Les normales ne sont jamais rattachées à un rendez-vous ni annoncées sur Discord
+(`sql/08_games_normales.sql`). Sur la page Statistiques, elles ont leur propre type
+« Normales » et, comme pour la flex, leurs bans ne sont pas comptés.
 
 Mise en place (une seule fois) :
 

@@ -22,10 +22,11 @@ Ce qu'il fait, tout seul, tant que le client est ouvert :
   3. il enregistre le tout dans Supabase (tables games et game_participants) ;
   4. il annonce le résultat dans le post Discord de la session en cours.
 
-Seules sont envoyées les games perso et les flex, en 5v5 sur la Faille,
-où au moins 4 joueurs de la team sont dans la même équipe (d'après les
-colonne riot_id de la table players, "Pseudo#TAG"). Le reste (soloQ,
-ARAM, flex avec d'autres amis…) ne sort jamais de l'ordinateur.
+Seules sont envoyées les games perso, les flex et les normales, en 5v5 sur
+la Faille, où au moins 4 joueurs de la team sont dans la même équipe
+(d'après les colonne riot_id de la table players, "Pseudo#TAG"). Le reste
+(soloQ, ARAM, flex ou normale avec d'autres amis…) ne sort jamais de
+l'ordinateur.
 
 À chaque ouverture du client, il rattrape les games des dernières 24h
 qu'il aurait manquées (la draft est alors donnée sans l'ordre des picks).
@@ -75,6 +76,8 @@ CATCH_UP_HOURS = 24         # au lancement, on rattrape les games récentes
 MIN_DURATION_S = 5 * 60     # en dessous : remake ou game annulée, on ignore
 
 FLEX_QUEUES = {440}         # files classées envoyées en plus des games perso
+# Files normales envoyées aussi : 400 = draft, 430 = aveugle, 490 = partie rapide
+NORMAL_QUEUES = {400, 430, 490}
 MIN_TEAM_PLAYERS = 4        # joueurs de la team dans la même équipe pour garder la game
 SUMMONERS_RIFT = 11
 
@@ -277,11 +280,11 @@ def riot_id(player):
 
 
 def is_wanted(game):
-    """Game en 5v5 sur la Faille, perso ou flex ?"""
+    """Game en 5v5 sur la Faille, perso, flex ou normale ?"""
     custom = game.get("gameType") == "CUSTOM_GAME"
     return (game.get("mapId") == SUMMONERS_RIFT
             and game.get("gameMode") == "CLASSIC"
-            and (custom or game.get("queueId") in FLEX_QUEUES))
+            and (custom or game.get("queueId") in FLEX_QUEUES | NORMAL_QUEUES))
 
 
 def draft_from_champ_select(session, champion_side, me_side, champions):
@@ -629,7 +632,7 @@ class Companion:
 
         self.done.add(game_id)
         if not is_wanted(game):
-            print(f"Game {game_id} ignorée (ni perso ni flex en 5v5 sur la Faille).")
+            print(f"Game {game_id} ignorée (ni perso, ni flex, ni normale en 5v5 sur la Faille).")
         elif game.get("gameDuration", 0) < MIN_DURATION_S:
             print(f"Game {game_id} ignorée (moins de {MIN_DURATION_S // 60} minutes).")
         else:

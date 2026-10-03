@@ -29,7 +29,14 @@ Object.assign(state, {
 });
 
 const PERIODS = [["30j", "30 derniers jours"], ["saison", "Saison"], ["tout", "Tout"]];
-const GAME_TYPES = [["tout", "Tout"], ["scrim", "Scrims"], ["match_officiel", "Matchs officiels"], ["flex", "Flex"]];
+const GAME_TYPES = [["tout", "Tout"], ["scrim", "Scrims"], ["match_officiel", "Matchs officiels"], ["flex", "Flex"], ["normal", "Normales"]];
+
+// Files normales (mêmes numéros que dans le companion) : draft, aveugle, partie rapide
+const NORMAL_QUEUES = [400, 430, 490];
+// Nom affiché pour chaque type de game ("normal" n'est pas un type de rendez-vous)
+const GAME_TYPE_LABELS = { ...TYPE_LABELS, normal: "Normale" };
+// Types joués contre des inconnus : leurs bans ne sont pas comptés
+const TYPES_SANS_BANS = ["flex", "normal"];
 
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
 const ROLE_NAMES = { top: "Top", jungle: "Jungle", mid: "Mid", adc: "ADC", support: "Support" };
@@ -46,9 +53,11 @@ const MIN_GAMES = 2;
 // "Queen Isa#EUW" → "queenisa#euw" : majuscules et espaces ne comptent pas
 const normId = (riotId) => (riotId || "").replace(/\s+/g, "").toLowerCase();
 
-// Type d'une game : celui de son rendez-vous. Une game jouée hors de
+// Type d'une game. Une game normale est toujours "normal" (reconnue à sa
+// file). Sinon c'est le type de son rendez-vous ; une game jouée hors de
 // tout rendez-vous compte comme de la flex, même si c'est une game perso.
 function gameType(game) {
+  if (NORMAL_QUEUES.includes(game.queue_id)) return "normal";
   return game.events?.type || "flex";
 }
 
@@ -150,9 +159,9 @@ function draftStats(games) {
   const ourBans = new Map(), theirBans = new Map(), against = new Map();
   for (const g of games) {
     const win = isWin(g);
-    // En flex, on joue contre des inconnus : les bans ne disent rien de notre
-    // draft ni de celle qu'on prépare contre nous, on ne les compte pas.
-    if (gameType(g) !== "flex") {
+    // En flex et en normale, on joue contre des inconnus : les bans ne disent
+    // rien de notre draft ni de celle qu'on prépare contre nous, on ne les compte pas.
+    if (!TYPES_SANS_BANS.includes(gameType(g))) {
       for (const champion of g.draft?.[g.our_side]?.bans || []) tally(ourBans, champion, win, { champion });
       for (const champion of g.draft?.[otherSide(g.our_side)]?.bans || []) tally(theirBans, champion, win, { champion });
     }
@@ -221,14 +230,18 @@ function sessionList(games) {
   const map = new Map();
   for (const g of games) {
     const start = new Date(g.started_at);
-    const key = g.event_id ? `e${g.event_id}` : `d${start.toDateString()}`;
+    const type = gameType(g);
+    // Une normale n'appartient jamais à la session d'un rendez-vous : les
+    // normales d'un même jour sont regroupées entre elles.
+    const event = type === "normal" ? null : g.events;
+    const key = event ? `e${g.event_id}` : `d${type === "normal" ? "n" : ""}${start.toDateString()}`;
     if (!map.has(key)) {
-      const label = TYPE_LABELS[gameType(g)];
+      const label = GAME_TYPE_LABELS[type];
       map.set(key, {
         date: start,
-        title: g.events
-          ? (g.events.opponent ? `${label} contre ${g.events.opponent}` : g.events.title)
-          : `${label} hors planning`,
+        title: event
+          ? (event.opponent ? `${label} contre ${event.opponent}` : event.title)
+          : (type === "normal" ? "Games normales" : `${label} hors planning`),
         wins: 0, losses: 0, games: [],
       });
     }
@@ -377,7 +390,7 @@ function renderDraft(games) {
   const d = draftStats(games);
   const banColumns = [{ label: "Champion", cell: (r) => r.champion }, { label: "Bans", num: true, cell: (r) => String(r.games) }];
 
-  const noBans = "Aucun ban relevé en scrim ou en match officiel (les bans de flex ne sont pas comptés).";
+  const noBans = "Aucun ban relevé en scrim ou en match officiel (les bans de flex et de normale ne sont pas comptés).";
   fill("#our-bans", d.ourBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
   fill("#their-bans", d.theirBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
   fill("#nemesis", d.nemesis.slice(0, 8),
@@ -503,7 +516,7 @@ function render() {
 
 // events(…) et game_participants(…) : Supabase fait les jointures grâce
 // aux clés étrangères. Chaque game arrive avec son rendez-vous et ses 10 joueurs.
-const GAME_COLUMNS = "id, event_id, started_at, duration_s, is_custom, our_side, winner, draft, teams, "
+const GAME_COLUMNS = "id, event_id, started_at, duration_s, is_custom, queue_id, our_side, winner, draft, teams, "
   + "events(title, type, opponent), "
   + "game_participants(side, slot, riot_id, champion, kills, deaths, assists, cs, gold, damage)";
 
