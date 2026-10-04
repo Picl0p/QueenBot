@@ -70,6 +70,24 @@ function sidePlayers(game, side) {
 }
 const ourPlayers = (game) => sidePlayers(game, game.our_side);
 
+// Renvoie une fonction qui retrouve le joueur de la team derrière un Riot ID
+// (ou null). Un Riot ID enregistré sans "#TAG" est comparé sur le pseudo seul.
+function playerFinder(players) {
+  const byRiotId = new Map();
+  for (const player of players) {
+    const id = normId(player.riot_id);
+    if (id) byRiotId.set(id, player);
+  }
+  return (riotId) => {
+    const id = normId(riotId);
+    return byRiotId.get(id) || byRiotId.get(id.split("#")[0]) || null;
+  };
+}
+
+// Les joueurs de NOTRE côté qui sont dans la team. Quand on joue à 4, le
+// cinquième (un inconnu) n'entre dans aucune statistique de champion ou de joueur.
+const teamPlayers = (game, find) => ourPlayers(game).filter((p) => find(p.riot_id));
+
 function filterGames(games, period, type, now = new Date()) {
   let since = null;
   if (period === "30j") since = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
@@ -115,10 +133,10 @@ function summary(games) {
 }
 
 // Bloc 2 : nos champions, avec winrate et KDA
-function championStats(games) {
+function championStats(games, find) {
   const map = new Map();
   for (const g of games) {
-    for (const p of ourPlayers(g)) {
+    for (const p of teamPlayers(g, find)) {
       const entry = tally(map, p.champion, isWin(g), { champion: p.champion, kills: 0, deaths: 0, assists: 0 });
       entry.kills += p.kills;
       entry.deaths += p.deaths;
@@ -128,11 +146,11 @@ function championStats(games) {
   return [...map.values()].sort(byGames);
 }
 
-// Bloc 2 : duos de champions joués ensemble (toutes les paires de la compo)
-function duoStats(games) {
+// Bloc 2 : duos de champions joués ensemble par deux joueurs de la team
+function duoStats(games, find) {
   const map = new Map();
   for (const g of games) {
-    const champions = ourPlayers(g).map((p) => p.champion).sort();
+    const champions = teamPlayers(g, find).map((p) => p.champion).sort();
     for (let i = 0; i < champions.length; i++) {
       for (let j = i + 1; j < champions.length; j++) {
         const pair = [champions[i], champions[j]];
@@ -143,11 +161,13 @@ function duoStats(games) {
   return [...map.values()].filter((d) => d.games >= MIN_GAMES).sort(byWinrate);
 }
 
-// Bloc 2 : compos complètes (les 5 mêmes champions), dans l'ordre de l'équipe
-function compStats(games) {
+// Bloc 2 : compos complètes (les 5 mêmes champions), dans l'ordre de l'équipe.
+// Seules comptent les games jouées à 5 de la team : avec un inconnu, ce
+// n'est pas vraiment notre compo.
+function compStats(games, find) {
   const map = new Map();
   for (const g of games) {
-    const champions = ourPlayers(g).map((p) => p.champion);
+    const champions = teamPlayers(g, find).map((p) => p.champion);
     if (champions.length !== 5) continue;
     tally(map, [...champions].sort().join("|"), isWin(g), { champions });
   }
@@ -179,30 +199,17 @@ function draftStats(games) {
 
 // Bloc 4 : stats par joueur. On relie chaque participant de notre côté à
 // un joueur de la team grâce à son Riot ID ; ceux qu'on ne reconnaît pas
-// (remplaçant sans Riot ID renseigné) apparaissent sous leur pseudo en jeu.
-function playerStats(games, players) {
-  const byRiotId = new Map();
-  for (const player of players) {
-    const id = normId(player.riot_id);
-    if (id) byRiotId.set(id, player);
-  }
-  // Un Riot ID enregistré sans "#TAG" est comparé sur le pseudo seul
-  const findPlayer = (riotId) => {
-    const id = normId(riotId);
-    return byRiotId.get(id) || byRiotId.get(id.split("#")[0]) || null;
-  };
-
+// (un inconnu quand on joue à 4) ne sont pas comptés.
+function playerStats(games, find) {
   const map = new Map();
   for (const g of games) {
-    const team = ourPlayers(g);
-    const teamDamage = team.reduce((sum, p) => sum + p.damage, 0);
-    for (const p of team) {
-      const player = findPlayer(p.riot_id);
-      const name = (p.riot_id || "Inconnu").split("#")[0];
-      const entry = tally(map, player ? `p${player.id}` : `r${normId(p.riot_id)}`, isWin(g), {
-        pseudo: player ? player.pseudo : name,
-        role: player?.main_role || null,
-        linked: Boolean(player),
+    // Part des dégâts : calculée sur les 5 joueurs de notre côté, inconnu compris
+    const teamDamage = ourPlayers(g).reduce((sum, p) => sum + p.damage, 0);
+    for (const p of teamPlayers(g, find)) {
+      const player = find(p.riot_id);
+      const entry = tally(map, player.id, isWin(g), {
+        pseudo: player.pseudo,
+        role: player.main_role || null,
         kills: 0, deaths: 0, assists: 0, cs: 0, damage: 0, seconds: 0, damageShare: 0,
         champions: new Map(),
       });
@@ -220,8 +227,8 @@ function playerStats(games, players) {
   const roleRank = (entry) => (entry.role ? ROLE_ORDER.indexOf(entry.role) : ROLE_ORDER.length);
   return [...map.values()]
     .map((entry) => ({ ...entry, champions: [...entry.champions.values()].sort(byGames) }))
-    // Les joueurs de la team d'abord, du top au support ; puis les autres
-    .sort((a, b) => b.linked - a.linked || roleRank(a) - roleRank(b) || b.games - a.games);
+    // Du top au support
+    .sort((a, b) => roleRank(a) - roleRank(b) || b.games - a.games);
 }
 
 // Bloc 5 : games regroupées par session (rendez-vous), de la plus récente à
@@ -304,6 +311,55 @@ function fill(selector, rows, emptyMessage, build) {
   $(selector).replaceChildren(rows.length ? build(rows) : el("p", { class: "stat-empty", text: emptyMessage }));
 }
 
+// --- Icônes des champions (Data Dragon, le site d'images officiel de Riot) ---
+// La base ne garde que le NOM des champions, dans la langue du client de la
+// personne qui a envoyé la game. On relie donc nom → image, en français et
+// en anglais. Si les icônes ne se chargent pas, on affiche les noms en texte.
+
+const DDRAGON = "https://ddragon.leagueoflegends.com";
+const championIcons = new Map();   // nom simplifié → adresse de l'icône
+
+// "Kai'Sa" → "kaisa", "Maître Yi" → "maitreyi" : accents, espaces et ponctuation ne comptent pas
+const champKey = (name) => String(name || "").normalize("NFD").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+async function loadChampionIcons() {
+  try {
+    const versions = await (await fetch(`${DDRAGON}/api/versions.json`)).json();
+    const version = versions[0];   // patch le plus récent
+    const lists = await Promise.all(["fr_FR", "en_US"].map(async (locale) =>
+      (await fetch(`${DDRAGON}/cdn/${version}/data/${locale}/champion.json`)).json()));
+    for (const list of lists) {
+      for (const champion of Object.values(list.data)) {
+        const url = `${DDRAGON}/cdn/${version}/img/champion/${champion.image.full}`;
+        // Nom affiché, identifiant interne ("MonkeyKing") et numéro : tous mènent à l'icône
+        for (const name of [champion.name, champion.id, champion.key]) championIcons.set(champKey(name), url);
+      }
+    }
+  } catch (err) {
+    console.warn("Icônes des champions indisponibles :", err);
+  }
+}
+
+// Icône seule (le nom reste lisible au survol et par les lecteurs d'écran).
+// Sans icône connue : le nom en texte.
+function champIcon(name) {
+  const url = championIcons.get(champKey(name));
+  return url
+    ? el("img", { class: "champ-icon", src: url, alt: name, title: name, loading: "lazy", width: "28", height: "28" })
+    : el("span", { class: "chip", text: name });
+}
+
+// Icône + nom
+function champLabel(name) {
+  const url = championIcons.get(champKey(name));
+  return el("span", { class: "champ" },
+    url ? el("img", { class: "champ-icon", src: url, alt: "", loading: "lazy", width: "28", height: "28" }) : null,
+    el("span", { text: name }));
+}
+
+// Rangée d'icônes (bans, picks, compo)
+const champRow = (names) => el("span", { class: "champ-row" }, ...names.map(champIcon));
+
 const COL_GAMES = { label: "Games", num: true, cell: (r) => String(r.games) };
 const COL_WINRATE = { label: "Winrate", cell: winrateCell };
 
@@ -364,23 +420,24 @@ function renderSummary(games) {
 }
 
 function renderChampions(games) {
-  fill("#champions", championStats(games).slice(0, 15), "Aucun champion joué.", (rows) => statTable([
-    { label: "Champion", cell: (r) => r.champion },
+  const find = playerFinder(state.players);
+  fill("#champions", championStats(games, find).slice(0, 15), "Aucun champion joué.", (rows) => statTable([
+    { label: "Champion", cell: (r) => champLabel(r.champion) },
     COL_GAMES,
     COL_WINRATE,
     { label: "KDA", num: true, cell: (r) => kda(r.kills, r.deaths, r.assists) },
   ], rows));
 
-  fill("#duos", duoStats(games).slice(0, 10),
+  fill("#duos", duoStats(games, find).slice(0, 10),
     `Aucun duo joué au moins ${MIN_GAMES} fois pour l'instant.`, (rows) => statTable([
-      { label: "Duo", cell: (r) => r.champions.join(" + ") },
+      { label: "Duo", cell: (r) => champRow(r.champions) },
       COL_GAMES,
       COL_WINRATE,
     ], rows));
 
-  fill("#comps", compStats(games).slice(0, 10),
+  fill("#comps", compStats(games, find).slice(0, 10),
     `Aucune compo complète jouée au moins ${MIN_GAMES} fois pour l'instant.`, (rows) => statTable([
-      { label: "Compo", cell: (r) => r.champions.join(" · ") },
+      { label: "Compo", cell: (r) => champRow(r.champions) },
       COL_GAMES,
       COL_WINRATE,
     ], rows));
@@ -388,14 +445,14 @@ function renderChampions(games) {
 
 function renderDraft(games) {
   const d = draftStats(games);
-  const banColumns = [{ label: "Champion", cell: (r) => r.champion }, { label: "Bans", num: true, cell: (r) => String(r.games) }];
+  const banColumns = [{ label: "Champion", cell: (r) => champLabel(r.champion) }, { label: "Bans", num: true, cell: (r) => String(r.games) }];
 
   const noBans = "Aucun ban relevé en scrim ou en match officiel (les bans de flex et de normale ne sont pas comptés).";
   fill("#our-bans", d.ourBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
   fill("#their-bans", d.theirBans.slice(0, 8), noBans, (rows) => statTable(banColumns, rows));
   fill("#nemesis", d.nemesis.slice(0, 8),
     `Aucun champion adverse ne nous a battus sur au moins ${MIN_GAMES} games.`, (rows) => statTable([
-      { label: "Champion adverse", cell: (r) => r.champion },
+      { label: "Champion adverse", cell: (r) => champLabel(r.champion) },
       { label: "Games contre", num: true, cell: (r) => String(r.games) },
       { label: "Défaites", num: true, cell: (r) => String(r.games - r.wins) },
       { label: "Notre winrate", cell: winrateCell },
@@ -403,12 +460,12 @@ function renderDraft(games) {
 }
 
 function renderPlayers(games) {
-  fill("#players", playerStats(games, state.players), "Aucun joueur.", (rows) => statTable([
+  fill("#players", playerStats(games, playerFinder(state.players)), "Aucun joueur de la team reconnu dans ces games.", (rows) => statTable([
     {
       label: "Joueur",
       cell: (r) => el("span", {},
         el("span", { class: "player-name", text: r.pseudo }),
-        el("span", { class: "player-role", text: r.linked ? (ROLE_NAMES[r.role] || "") : "Riot ID non relié" })),
+        el("span", { class: "player-role", text: ROLE_NAMES[r.role] || "" })),
     },
     COL_GAMES,
     COL_WINRATE,
@@ -419,7 +476,8 @@ function renderPlayers(games) {
     {
       label: "Champions",
       cell: (r) => el("span", { class: "chips" }, ...r.champions.slice(0, 4).map((c) =>
-        el("span", { class: "chip", title: `${plural(c.games, "game")}, ${pct(c.wins / c.games)} de victoires`, text: `${c.champion} ${c.games}` }))),
+        el("span", { class: "chip chip-champ", title: `${c.champion} : ${plural(c.games, "game")}, ${pct(c.wins / c.games)} de victoires` },
+          champIcon(c.champion), el("span", { text: String(c.games) })))),
     },
   ], rows));
 }
@@ -436,13 +494,15 @@ function gameDetail(game, number) {
     draft.append(
       el("dt", { text: sideName(side) }),
       el("dd", {},
-        part.bans?.length ? el("span", { class: "draft-line", text: `Bans : ${part.bans.join(" · ")}` }) : null,
-        el("span", { class: "draft-line", text: `Picks : ${(part.picks || []).join(" · ")}` }))
+        part.bans?.length
+          ? el("span", { class: "draft-line is-bans" }, el("span", { class: "draft-label", text: "Bans" }), champRow(part.bans))
+          : null,
+        el("span", { class: "draft-line" }, el("span", { class: "draft-label", text: "Picks" }), champRow(part.picks || [])))
     );
   }
 
   const columns = [
-    { label: "Champion", cell: (p) => p.champion },
+    { label: "Champion", cell: (p) => champLabel(p.champion) },
     { label: "Joueur", cell: (p) => (p.riot_id || "").split("#")[0] },
     { label: "K / D / A", num: true, cell: (p) => `${p.kills} / ${p.deaths} / ${p.assists}` },
     { label: "CS", num: true, cell: (p) => String(p.cs) },
@@ -540,9 +600,11 @@ async function fetchGames() {
 
 async function loadStats() {
   try {
+    // Les icônes se chargent en même temps ; leur échec ne bloque pas la page
     const [players, games] = await Promise.all([
       db.from("players").select("id, pseudo, riot_id, main_role, status"),
       fetchGames(),
+      loadChampionIcons(),
     ]);
     if (players.error) throw new Error(players.error.message);
     state.players = players.data;

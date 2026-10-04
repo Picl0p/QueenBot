@@ -1114,7 +1114,51 @@ main {
 }
 .draft dt { color: var(--texte-doux); }
 .draft dd { margin: 0; }
-.draft-line { display: block; }
+/* Icônes des champions */
+.champ {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+.champ-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 6px;
+  background: var(--surface-2);
+  flex: none;
+}
+.champ-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem;
+}
+.chip-champ {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .15rem .55rem .15rem .15rem;
+}
+.chip-champ .champ-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+}
+.draft-line {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: .3rem;
+}
+/* Bans : grisés, pour les distinguer des picks */
+.draft-line.is-bans .champ-icon { filter: grayscale(.7); opacity: .75; }
+/* Champion sans icône connue dans une pastille : pas de pastille dans la pastille */
+.chip .chip { padding: 0; background: none; }
+.draft-label {
+  min-width: 2.6rem;
+  font-size: .8rem;
+  color: var(--texte-doux);
+}
 .scoreboard { margin-bottom: 1rem; }
 .scoreboard-title { margin: 0 0 .25rem; font-size: .9rem; color: var(--texte-doux); }
 .scoreboard-title strong { color: var(--texte); }
