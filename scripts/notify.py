@@ -48,10 +48,17 @@ PARIS = ZoneInfo("Europe/Paris")
 # ⚠️ Ces chaînes doivent être IDENTIQUES à celles du workflow.
 # ---------------------------------------------------------------------
 SCHEDULES = {
-    "0 18 * * 0": ("relance", 2),    # dimanche 20h, heure d'été
-    "0 19 * * 0": ("relance", 1),    # dimanche 20h, heure d'hiver
-    "0 10 * * *": ("planning", 2),   # tous les jours 12h, heure d'été
-    "0 11 * * *": ("planning", 1),   # tous les jours 12h, heure d'hiver
+    "47 17 * * 0": ("relance", 2),    # dimanche 19h47, heure d'été
+    "47 18 * * 0": ("relance", 1),    # dimanche 19h47, heure d'hiver
+    "47 9 * * *": ("planning", 2),   # tous les jours 11h47, heure d'été
+    "47 10 * * *": ("planning", 1),   # tous les jours 11h47, heure d'hiver
+}
+
+# Retard toléré pour un lancement automatique. Au-delà, rien n'est envoyé :
+# une relance du dimanche 20h n'a plus de sens à 2h du matin.
+RETARD_MAX = {
+    "relance": timedelta(hours=3),
+    "planning": timedelta(hours=8),
 }
 
 TYPE_LABELS = {
@@ -299,29 +306,53 @@ def planning(today):
 # Point d'entrée
 # ---------------------------------------------------------------------
 
+def heure_prevue(cron, now):
+    """Moment où le cron aurait dû se déclencher : sa dernière occurrence
+    avant `now`. "47 17 * * 0" lancé lundi à 1h UTC → dimanche 17h47 UTC."""
+    minute, hour = (int(x) for x in cron.split()[:2])
+    planned = now.astimezone(ZoneInfo("UTC")).replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if planned > now:
+        planned -= timedelta(days=1)
+    return planned.astimezone(PARIS)
+
+
 def main():
     now = datetime.now(PARIS)
     schedule = env("SCHEDULE", required=False)
+    today = now.date()
 
     if schedule:
         # Lancement automatique : on vérifie que c'est le bon cron
         if schedule not in SCHEDULES:
             sys.exit(f"Cron inconnu : {schedule!r} (à ajouter dans SCHEDULES)")
         mode, expected_offset = SCHEDULES[schedule]
-        offset = int(now.utcoffset().total_seconds() // 3600)
+
+        # GitHub peut lancer le cron avec des heures de retard. On raisonne
+        # donc sur l'heure PRÉVUE : la date de la notification est celle du
+        # jour prévu (un cron du dimanche lancé lundi à 2h reste "dimanche"),
+        # et au-delà du retard toléré on n'envoie rien plutôt que de
+        # mentionner les gens en pleine nuit.
+        planned = heure_prevue(schedule, now)
+        offset = int(planned.utcoffset().total_seconds() // 3600)
         if offset != expected_offset:
             print(f"Cron {schedule!r} prévu pour UTC+{expected_offset}, "
                   f"Paris est actuellement en UTC+{offset} : rien à faire.")
             return
+        late = now - planned
+        if late > RETARD_MAX[mode]:
+            print(f"Cron {schedule!r} lancé avec {late.total_seconds() / 3600:.1f} h de retard "
+                  f"(prévu à {heure_fr(planned)}) : trop tard, rien n'est envoyé.")
+            return
+        today = planned.date()
     else:
         # Lancement manuel (bouton "Run workflow" ou test en local)
         mode = env("MODE", required=False) or "planning"
 
-    print(f"Notification « {mode} » du {date_fr(now.date())}")
+    print(f"Notification « {mode} » du {date_fr(today)}")
     if mode == "relance":
-        relance(now.date())
+        relance(today)
     elif mode == "planning":
-        planning(now.date())
+        planning(today)
     else:
         sys.exit(f"Mode inconnu : {mode!r}")
 

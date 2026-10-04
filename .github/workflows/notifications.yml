@@ -13,10 +13,10 @@ name: Notifications Discord
 
 on:
   schedule:
-    - cron: "0 18 * * 0"   # relance, dimanche 20h (heure d'été)
-    - cron: "0 19 * * 0"   # relance, dimanche 20h (heure d'hiver)
-    - cron: "0 10 * * *"   # planning du jour, 12h (heure d'été)
-    - cron: "0 11 * * *"   # planning du jour, 12h (heure d'hiver)
+    - cron: "47 17 * * 0"   # relance, dimanche 19h47 (heure d'été)
+    - cron: "47 18 * * 0"   # relance, dimanche 19h47 (heure d'hiver)
+    - cron: "47 9 * * *"   # planning du jour, 11h47 (heure d'été)
+    - cron: "47 10 * * *"   # planning du jour, 11h47 (heure d'hiver)
 
   workflow_dispatch:
     inputs:
