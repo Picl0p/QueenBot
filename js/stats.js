@@ -383,8 +383,9 @@ function renderFilters() {
   group("#filter-type", GAME_TYPES, state.type, (value) => { state.type = value; render(); });
 }
 
-function tile(label, value, detail) {
-  return el("div", { class: "tile" },
+// `extraClass` : classe en plus (ex. "side-blue" pour teinter la tuile)
+function tile(label, value, detail, extraClass = "") {
+  return el("div", { class: `tile ${extraClass}`.trim() },
     el("span", { class: "tile-label", text: label }),
     el("span", { class: "tile-value", text: value }),
     detail ? el("span", { class: "tile-detail", text: detail }) : null
@@ -404,8 +405,8 @@ function renderSummary(games) {
       el("span", { class: "tile-value", text: pct(s.wins / s.games) }),
       el("span", { class: "tile-detail", text: `${s.wins} V – ${s.losses} D sur ${plural(s.games, "game")}` })
     ),
-    tile("Côté bleu", ...side("blue")),
-    tile("Côté rouge", ...side("red")),
+    tile("Blue side", ...side("blue"), "side-blue"),
+    tile("Red side", ...side("red"), "side-red"),
     tile("Durée moyenne", duration(s.avgDuration))
   );
 
@@ -486,13 +487,20 @@ function renderPlayers(games) {
 function gameDetail(game, number) {
   const win = isWin(game);
   const sides = [game.our_side, otherSide(game.our_side)];
-  const sideName = (side) => `${side === game.our_side ? "Nous" : "Adversaire"} (côté ${side === "blue" ? "bleu" : "rouge"})`;
+  const sideName = (side) => `${side === game.our_side ? "Nous" : "Adversaire"} (${side} side)`;
+
+  // Un chiffre du récap d'équipe avec sa petite icône. `label` est lu par les
+  // lecteurs d'écran et affiché au survol (ex. "8 tours").
+  const recapItem = (icon, value, label) => el("span", { class: "recap-item", title: label },
+    el("img", { class: "recap-icon", src: `assets/icons/${icon}`, alt: "", width: "16", height: "16" }),
+    el("span", { "aria-hidden": "true", text: value }),
+    el("span", { class: "sr-only", text: label }));
 
   const draft = el("dl", { class: "draft" });
   for (const side of sides) {
     const part = game.draft?.[side] || {};
     draft.append(
-      el("dt", { text: sideName(side) }),
+      el("dt", { class: `side-${side}`, text: sideName(side) }),
       el("dd", {},
         part.bans?.length
           ? el("span", { class: "draft-line is-bans" }, el("span", { class: "draft-label", text: "Bans" }), champRow(part.bans))
@@ -511,12 +519,15 @@ function gameDetail(game, number) {
   ];
   const boards = sides.map((side) => {
     const team = game.teams?.[side] || {};
-    const recap = [plural(team.kills || 0, "kill"), `${thousands(team.gold || 0)} or`, plural(team.towers || 0, "tour"),
-      plural(team.dragons || 0, "drake"), plural(team.barons || 0, "baron")].join(" · ");
-    return el("div", { class: "scoreboard" },
-      el("p", { class: "scoreboard-title" },
-        el("strong", { text: sideName(side) }),
-        el("span", { text: ` — ${recap}` })),
+    // Tour, drake et baron existent en bleu et en rouge, comme dans le client
+    const recap = el("span", { class: "recap" },
+      recapItem("kills.svg", String(team.kills || 0), plural(team.kills || 0, "kill")),
+      recapItem("gold.png", thousands(team.gold || 0), `${thousands(team.gold || 0)} d'or`),
+      recapItem(`tower-${side}.png`, String(team.towers || 0), plural(team.towers || 0, "tour")),
+      recapItem(`dragon-${side}.png`, String(team.dragons || 0), plural(team.dragons || 0, "drake")),
+      recapItem(`baron-${side}.png`, String(team.barons || 0), plural(team.barons || 0, "baron")));
+    return el("div", { class: `scoreboard side-${side}` },
+      el("p", { class: "scoreboard-title" }, el("strong", { text: sideName(side) }), recap),
       statTable(columns, sidePlayers(game, side)));
   });
 

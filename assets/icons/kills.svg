@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#EFE2C6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Deux épées croisées -->
+  <path d="M3 3l11 11M3 3v4l9 9M3 3h4l9 9"/>
+  <path d="M21 3L10 14M21 3v4l-9 9M21 3h-4l-9 9"/>
+  <path d="M13.5 17.5l4-4M17 17l3.5 3.5M6.5 13.5l4 4M7 17l-3.5 3.5"/>
+</svg>

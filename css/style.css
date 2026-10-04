@@ -22,6 +22,10 @@
   --grad:          linear-gradient(135deg, #F7EEDC, var(--vanille) 45%, var(--beige));
 
   --poudre:   #E6B8B0;   /* vieux rose poudré */
+
+  /* Côtés de la Faille, repris des icônes du client LoL */
+  --blue-side: #4FC3DC;
+  --red-side:  #F0607A;
   --lavande:  #BBA8DC;   /* violet secondaire, désaturé */
   --donnee:   #9B7BDB;   /* haut de l'échelle des dispos */
   --nuit:     #1C1712;   /* texte foncé posé sur la vanille */
@@ -982,6 +986,12 @@ main {
 .tile-label { font-size: .85rem; color: var(--texte-doux); }
 .tile-value { font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
 .tile-detail { font-size: .85rem; color: var(--texte-doux); }
+/* Tuiles blue side / red side : même teinte que dans le détail d'une game */
+.tile.side-blue, .tile.side-red {
+  border-color: color-mix(in oklab, var(--side) 45%, var(--bord));
+  background: color-mix(in oklab, var(--side) 8%, var(--fond));
+}
+.tile.side-blue .tile-label, .tile.side-red .tile-label { color: var(--side); font-weight: 600; }
 /* Le winrate : le seul grand chiffre de la page */
 .tile-hero { border-color: var(--nacre-filet); }
 .tile-hero .tile-value { font-size: 3rem; color: var(--vanille-clair); }
@@ -1112,7 +1122,11 @@ main {
   margin: 0 0 1rem;
   font-size: .9rem;
 }
-.draft dt { color: var(--texte-doux); }
+.draft dt { color: var(--side, var(--texte-doux)); font-weight: 600; }
+
+/* Blue side / red side : la couleur du côté sert d'accent */
+.side-blue { --side: var(--blue-side); }
+.side-red  { --side: var(--red-side); }
 .draft dd { margin: 0; }
 /* Icônes des champions */
 .champ {
@@ -1159,9 +1173,52 @@ main {
   font-size: .8rem;
   color: var(--texte-doux);
 }
-.scoreboard { margin-bottom: 1rem; }
-.scoreboard-title { margin: 0 0 .25rem; font-size: .9rem; color: var(--texte-doux); }
-.scoreboard-title strong { color: var(--texte); }
+.scoreboard {
+  margin-bottom: 1rem;
+  padding: .6rem .75rem .25rem;
+  border-left: 3px solid var(--side, var(--bord));
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in oklab, var(--side, transparent) 7%, transparent);
+}
+.scoreboard-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem 1.25rem;
+  margin: 0 0 .25rem;
+  font-size: .9rem;
+  color: var(--texte-doux);
+}
+.scoreboard-title strong { color: var(--side, var(--texte)); }
+
+/* Récap d'une équipe : kills, or, tours, drakes, barons */
+.recap {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .3rem .9rem;
+}
+.recap-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  color: var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+.recap-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+}
+
+/* Texte réservé aux lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 @media (max-width: 520px) {
   .draft { grid-template-columns: 1fr; }
   .draft dd { margin-bottom: .4rem; }
