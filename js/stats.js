@@ -53,12 +53,13 @@ const MIN_GAMES = 2;
 // "Queen Isa#EUW" → "queenisa#euw" : majuscules et espaces ne comptent pas
 const normId = (riotId) => (riotId || "").replace(/\s+/g, "").toLowerCase();
 
-// Type d'une game. Une game normale est toujours "normal" (reconnue à sa
-// file). Sinon c'est le type de son rendez-vous ; une game jouée hors de
-// tout rendez-vous compte comme de la flex, même si c'est une game perso.
+// Type d'une game : celui de son rendez-vous. Une normale jouée pendant une
+// session Flex (à 4, la flex est impossible) compte donc comme de la flex.
+// Hors de tout rendez-vous : "normal" pour une normale, sinon de la flex
+// (même pour une game perso).
 function gameType(game) {
-  if (NORMAL_QUEUES.includes(game.queue_id)) return "normal";
-  return game.events?.type || "flex";
+  if (game.events) return game.events.type;
+  return NORMAL_QUEUES.includes(game.queue_id) ? "normal" : "flex";
 }
 
 const isWin = (game) => game.winner === game.our_side;
@@ -238,9 +239,8 @@ function sessionList(games) {
   for (const g of games) {
     const start = new Date(g.started_at);
     const type = gameType(g);
-    // Une normale n'appartient jamais à la session d'un rendez-vous : les
-    // normales d'un même jour sont regroupées entre elles.
-    const event = type === "normal" ? null : g.events;
+    const event = g.events;
+    // Hors rendez-vous, les normales d'un même jour sont regroupées entre elles
     const key = event ? `e${g.event_id}` : `d${type === "normal" ? "n" : ""}${start.toDateString()}`;
     if (!map.has(key)) {
       const label = GAME_TYPE_LABELS[type];

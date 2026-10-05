@@ -48,9 +48,11 @@ et les stats des 10 joueurs, puis annonce le résultat dans le post Discord de l
 Il ne garde que les games perso, les flex et les normales (draft, aveugle, partie
 rapide) où au moins 4 joueurs de la team sont dans la même équipe.
 
-Les normales ne sont jamais rattachées à un rendez-vous ni annoncées sur Discord
-(`sql/08_games_normales.sql`). Sur la page Statistiques, elles ont leur propre type
-« Normales » et, comme pour la flex, leurs bans ne sont pas comptés.
+Une normale jouée pendant une session « Flex » (quand on n'est que 4) compte pour
+cette session : série, annonce dans son post Discord et type « Flex » dans les stats
+(`sql/09_normales_en_session.sql`). Hors de toute session, elle n'est pas annoncée
+et a son propre type « Normales » dans les stats. Comme pour la flex, ses bans ne
+sont pas comptés.
 
 Mise en place (une seule fois) :
 
