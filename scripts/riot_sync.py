@@ -74,12 +74,16 @@ DRY_RUN = env("DRY_RUN", required=False).lower() == "true"
 
 def key_refused(error, url):
     """Message clair quand Riot refuse la clé : sa réponse, l'appel concerné, et quoi vérifier."""
-    try:
-        detail = json.loads(error.read()).get("status", {}).get("message", "")
-    except (ValueError, AttributeError):
-        detail = ""
-    key = env("RIOT_API_KEY")
+    body = error.read().decode(errors="replace").strip()
     endpoint = "/" + url.split("/", 3)[3].split("?")[0]
+    try:
+        detail = json.loads(body).get("status", {}).get("message", "")
+    except (ValueError, AttributeError):
+        # Pas une réponse de Riot : c'est la protection placée devant son API
+        # (Cloudflare) qui a bloqué la demande, sans même regarder la clé.
+        return (f"Demande bloquée avant d'atteindre Riot ({error.code}) sur {endpoint} : « {body[:120]} ». "
+                "Ce n'est pas un problème de clé.")
+    key = env("RIOT_API_KEY")
     hints = []
     if not key.startswith("RGAPI-"):
         hints.append("la clé ne commence pas par « RGAPI- » : le secret RIOT_API_KEY est sans doute mal collé (guillemets, espace, morceau manquant)")
@@ -106,7 +110,13 @@ def riot(url):
             time.sleep(wait)
         _last_call = time.monotonic()
 
-        request = urllib.request.Request(url, headers={"X-Riot-Token": env("RIOT_API_KEY")})
+        request = urllib.request.Request(url, headers={
+            "X-Riot-Token": env("RIOT_API_KEY"),
+            # Sans User-Agent explicite, la protection devant l'API de Riot refuse
+            # les demandes de Python (403, « error code: 1010 »), comme Discord.
+            "User-Agent": "QueenBot riot_sync (github.com/Picl0p/QueenBot)",
+            "Accept": "application/json",
+        })
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 return json.loads(response.read())
