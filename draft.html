@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drafts – Queen's Gambit</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- Polices : Cinzel (titres, écho à la bannière) + Figtree (texte) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <img src="assets/banniere.webp" alt="Bannière de la team Queen's Gambit" width="1983" height="793">
+  </div>
+
+  <main>
+    <!-- Menu et compte, sur la même ligne -->
+    <div class="top-bar">
+      <nav class="main-nav" aria-label="Pages du site">
+        <a href="index.html">Planning</a>
+        <a href="draft.html" aria-current="page">Drafts</a>
+        <a href="stats.html">Statistiques</a>
+      </nav>
+      <!-- Compte : visible une fois connecté -->
+      <div id="user-zone" class="user-zone" hidden>
+        <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+        <span id="user-name" class="user-name"></span>
+        <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+      </div>
+    </div>
+    <!-- Un seul de ces blocs est visible à la fois (géré par common.js) -->
+
+    <section id="view-loading" class="state">
+      <p>Chargement…</p>
+    </section>
+
+    <section id="view-login" class="state" hidden>
+      <h1>Espace de la team</h1>
+      <p>Connecte-toi avec ton compte Discord pour voir et saisir les drafts de la team.</p>
+      <button id="login-btn" class="btn btn-primary" type="button">Se connecter avec Discord</button>
+    </section>
+
+    <section id="view-denied" class="state" hidden>
+      <h1>Accès réservé à la team</h1>
+      <p>Ton compte Discord n'est pas encore dans la liste des membres. Envoie cet identifiant à un admin pour qu'il t'ajoute :</p>
+      <div class="id-row">
+        <code id="denied-discord-id"></code>
+        <button id="copy-id-btn" class="btn btn-ghost" type="button">Copier</button>
+      </div>
+      <button id="denied-logout-btn" class="btn btn-ghost" type="button">Changer de compte</button>
+    </section>
+
+    <div id="view-app" class="stats" hidden>
+
+      <!-- Liste des sessions (sans ?event= dans l'adresse) -->
+      <section id="session-list" hidden>
+        <h1>Drafts</h1>
+        <p class="stat-hint">Choisis un scrim ou un match officiel pour saisir ses drafts, en même temps que sur drafter.lol.</p>
+        <ul id="sessions" class="draft-sessions"></ul>
+      </section>
+
+      <!-- Saisie d'une draft -->
+      <section id="editor" hidden>
+        <p class="draft-back"><a href="draft.html">← Toutes les sessions</a></p>
+        <h1 id="editor-title">Draft</h1>
+        <p id="editor-subtitle" class="stat-hint"></p>
+
+        <div class="filters">
+          <div class="filter">
+            <span id="filter-game-label" class="filter-label">Game</span>
+            <div id="games" class="segs" role="radiogroup" aria-labelledby="filter-game-label"></div>
+          </div>
+          <div class="filter">
+            <span id="filter-side-label" class="filter-label">Notre côté</span>
+            <div id="our-side" class="segs" role="radiogroup" aria-labelledby="filter-side-label"></div>
+          </div>
+          <div class="filter">
+            <span id="filter-first-label" class="filter-label">First pick</span>
+            <div id="first-pick" class="segs" role="radiogroup" aria-labelledby="filter-first-label"></div>
+          </div>
+          <div class="filter">
+            <span class="filter-label">Série</span>
+            <label class="draft-check"><input id="fearless" type="checkbox"> Fearless</label>
+          </div>
+        </div>
+
+        <div class="draft-board">
+          <div id="team-blue" class="draft-team side-blue"></div>
+
+          <!-- Saisie : un champion par étape, dans l'ordre de la draft -->
+          <div class="draft-center">
+            <p id="step-label" class="draft-step" aria-live="polite"></p>
+            <div id="entry" class="draft-entry">
+              <input id="champ-input" type="text" autocomplete="off" spellcheck="false"
+                     placeholder="Tape un champion…" aria-describedby="step-label"
+                     role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
+              <ul id="suggestions" class="draft-suggestions" role="listbox"></ul>
+              <div class="draft-entry-actions">
+                <button id="no-ban-btn" class="btn btn-ghost" type="button">Pas de ban</button>
+                <button id="undo-btn" class="btn btn-ghost" type="button">↶ Annuler</button>
+              </div>
+              <p class="field-hint">Entrée : premier champion proposé. ↑ ↓ pour choisir. Clique sur une case pour la corriger.</p>
+            </div>
+          </div>
+
+          <div id="team-red" class="draft-team side-red"></div>
+        </div>
+
+        <h3 class="stat-subtitle">Ordre de la draft</h3>
+        <ol id="order" class="draft-order"></ol>
+
+        <div class="draft-actions">
+          <button id="save-draft-btn" class="btn btn-ghost" type="button">Enregistrer</button>
+          <button id="post-draft-btn" class="btn btn-primary" type="button">Enregistrer et poster sur Discord</button>
+          <button id="clear-draft-btn" class="btn btn-ghost btn-danger" type="button">Tout effacer</button>
+        </div>
+        <p id="draft-status" class="stat-hint" aria-live="polite"></p>
+      </section>
+    </div>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <!-- Message temporaire (ex. après enregistrement) -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Librairie Supabase (expose l'objet global `supabase`) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/draft.js"></script>
+</body>
+</html>

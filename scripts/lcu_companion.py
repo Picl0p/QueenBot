@@ -20,7 +20,8 @@ Ce qu'il fait, tout seul, tant que le client est ouvert :
   1. pendant le champ select, il relève la draft (bans et picks, dans l'ordre) ;
   2. à la fin de la game, il récupère le résultat et les stats des 10 joueurs ;
   3. il enregistre le tout dans Supabase (tables games et game_participants) ;
-  4. il annonce le résultat dans le post Discord de la session en cours.
+  4. il annonce le résultat dans le post Discord de la session en cours,
+     avec la draft en image (icônes des champions).
 
 Seules sont envoyées les games perso, les flex et les normales, en 5v5 sur
 la Faille, où au moins 4 joueurs de la team sont dans la même équipe
@@ -58,12 +59,15 @@ import os
 import plistlib
 import re
 import ssl
+import struct
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -470,11 +474,250 @@ def md_escape(text):
     return re.sub(r"([\\*_~`|>\[\]])", r"\\\1", str(text))
 
 
-def build_result_message(game, info):
+# ---------------------------------------------------------------------
+# Image de la draft (picks et bans en icônes), jointe au message Discord
+#
+# Discord n'affiche pas d'images au milieu du texte : on fabrique donc une
+# image. Pour rester sans rien à installer, on lit et on écrit les PNG à la
+# main (zlib fait partie de Python) : c'est un format simple tant qu'on se
+# limite aux images 8 bits non entrelacées, ce que sont les icônes de Riot.
+# ---------------------------------------------------------------------
+
+# Icônes carrées des champions, par numéro (CommunityDragon, le miroir des
+# fichiers du jeu maintenu par la communauté)
+CHAMPION_ICON_URL = "https://cdn.communitydragon.org/latest/champion/{id}/square"
+
+DRAFT_BG = (26, 23, 32)                      # fond, comme les blocs du site
+SIDE_RGB = {"blue": (79, 195, 220), "red": (240, 96, 122)}
+PICK, BAN, GAP, PAD, BAR = 72, 40, 8, 16, 6  # tailles en pixels
+
+
+def png_decode(data):
+    """PNG → (largeur, hauteur, pixels RGB ligne par ligne). 8 bits, RGB ou RGBA."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("pas un PNG")
+    pos, idat = 8, b""
+    while pos < len(data):
+        length, kind = struct.unpack(">I4s", data[pos:pos + 8])
+        chunk = data[pos + 8:pos + 8 + length]
+        if kind == b"IHDR":
+            width, height, depth, color, _, _, interlace = struct.unpack(">IIBBBBB", chunk)
+        elif kind == b"IDAT":
+            idat += chunk
+        pos += 12 + length
+    if depth != 8 or color not in (2, 6) or interlace:
+        raise ValueError("format de PNG non pris en charge")
+
+    bpp = 3 if color == 2 else 4
+    stride = width * bpp
+    raw = zlib.decompress(idat)
+    rows, prev = [], bytearray(stride)
+    for y in range(height):
+        kind = raw[y * (stride + 1)]
+        line = bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for x in range(stride):
+            a = line[x - bpp] if x >= bpp else 0
+            b = prev[x]
+            c = prev[x - bpp] if x >= bpp else 0
+            if kind == 1:
+                line[x] = (line[x] + a) & 255
+            elif kind == 2:
+                line[x] = (line[x] + b) & 255
+            elif kind == 3:
+                line[x] = (line[x] + (a + b) // 2) & 255
+            elif kind == 4:   # "Paeth" : le voisin le plus proche de a + b - c
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[x] = (line[x] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append([tuple(line[i:i + 3]) for i in range(0, stride, bpp)])
+        prev = line
+    return width, height, rows
+
+
+def png_encode(width, height, rows):
+    """Pixels RGB → PNG."""
+    def chunk(kind, body):
+        return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
+    raw = b"".join(b"\x00" + bytes(v for px in row for v in px) for row in rows)
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b""))
+
+
+def resize(image, size):
+    """Réduit une image carrée en faisant la moyenne des pixels (net et sans moiré)."""
+    width, height, rows = image
+    out = []
+    for ty in range(size):
+        y0, y1 = ty * height // size, max(ty * height // size + 1, (ty + 1) * height // size)
+        line = []
+        for tx in range(size):
+            x0, x1 = tx * width // size, max(tx * width // size + 1, (tx + 1) * width // size)
+            block = [rows[y][x] for y in range(y0, y1) for x in range(x0, x1)]
+            line.append(tuple(sum(px[i] for px in block) // len(block) for i in range(3)))
+        out.append(line)
+    return out
+
+
+def dimmed(pixels):
+    """Icône de ban : en gris et assombrie, pour la distinguer des picks."""
+    return [[(g, g, g) for g in (int((0.3 * r + 0.59 * v + 0.11 * b) * 0.6) for r, v, b in line)]
+            for line in pixels]
+
+
+ICON_CACHE = {}   # numéro du champion → icône déjà téléchargée
+DDRAGON = "https://ddragon.leagueoflegends.com"
+
+
+def champ_key(name):
+    """'Maître Yi' → 'maitreyi', "Kai'Sa" → 'kaisa' : accents, espaces et ponctuation ne comptent pas."""
+    return re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFD", str(name or "")).lower())
+
+
+def champion_number(name, champion_ids):
+    """Numéro d'un champion d'après son nom (dans la langue du client, en
+    français ou en anglais, selon la langue de chacun). None si inconnu."""
+    return champion_ids.get(name) or champion_ids.get(champ_key(name))
+
+
+RIOT_IDS_CACHE = {}
+
+
+def riot_champion_ids():
+    """{nom simplifié: numéro} pour tous les champions, en français et en
+    anglais, d'après Data Dragon (le site officiel de Riot). Vide si injoignable."""
+    if not RIOT_IDS_CACHE:
+        try:
+            def get(url):
+                request = urllib.request.Request(url, headers={"User-Agent": "QueensGambitCompanion (lcu, 1.0)"})
+                with urllib.request.urlopen(request, timeout=20) as response:
+                    return json.loads(response.read())
+            version = get(f"{DDRAGON}/api/versions.json")[0]
+            for locale in ("fr_FR", "en_US"):
+                for champion in get(f"{DDRAGON}/cdn/{version}/data/{locale}/champion.json")["data"].values():
+                    for name in (champion["name"], champion["id"]):   # "Wukong" et "MonkeyKing"
+                        RIOT_IDS_CACHE[champ_key(name)] = int(champion["key"])
+        except (OSError, ValueError, KeyError) as e:
+            print(f"  Noms des champions indisponibles ({e}).")
+    return RIOT_IDS_CACHE
+
+
+def fetch_icon(champion_id, cache=ICON_CACHE):
+    """Icône d'un champion (pixels RGB 128×128), gardée en mémoire. None si introuvable."""
+    if not champion_id:
+        return None
+    if champion_id not in cache:
+        try:
+            request = urllib.request.Request(CHAMPION_ICON_URL.format(id=champion_id),
+                                             headers={"User-Agent": "QueensGambitCompanion (lcu, 1.0)"})
+            with urllib.request.urlopen(request, timeout=20) as response:
+                cache[champion_id] = png_decode(response.read())
+        except (OSError, ValueError):
+            cache[champion_id] = None
+    return cache[champion_id]
+
+
+def draft_image(draft, champion_ids, our_side=None):
+    """Image PNG de la draft : une ligne par équipe (blue side en haut),
+    5 picks puis les bans, en gris. Une barre de couleur marque chaque côté,
+    plus épaisse pour notre équipe. None si aucune icône n'a pu être chargée."""
+    has_bans = any((draft.get(side) or {}).get("bans") for side in ("blue", "red"))
+    picks_w = 5 * PICK + 4 * GAP
+    bans_w = (5 * BAN + 4 * (GAP // 2) + 3 * GAP) if has_bans else 0
+    width = PAD + BAR + 2 * GAP + picks_w + bans_w + PAD
+    height = PAD + 2 * PICK + 2 * GAP + PAD
+    canvas = [[DRAFT_BG] * width for _ in range(height)]
+    loaded = 0
+
+    def paste(pixels, x, y):
+        for dy, line in enumerate(pixels):
+            canvas[y + dy][x:x + len(line)] = line
+
+    def fill(x, y, w, h, color):
+        for dy in range(h):
+            canvas[y + dy][x:x + w] = [color] * w
+
+    for row, side in enumerate(("blue", "red")):
+        top = PAD + row * (PICK + 2 * GAP)
+        bar = BAR + (3 if side == our_side else 0)
+        fill(PAD, top, bar, PICK, SIDE_RGB[side])
+        x = PAD + BAR + 2 * GAP
+        part = draft.get(side) or {}
+        for name in (part.get("picks") or [])[:5]:
+            icon = fetch_icon(champion_number(name, champion_ids))
+            if icon:
+                fill(x - 2, top - 2, PICK + 4, PICK + 4, SIDE_RGB[side])   # liseré de la couleur du côté
+                paste(resize(icon, PICK), x, top)
+                loaded += 1
+            x += PICK + GAP
+        x = PAD + BAR + 2 * GAP + picks_w + 3 * GAP
+        for name in (part.get("bans") or [])[:5]:
+            icon = fetch_icon(champion_number(name, champion_ids))
+            if icon:
+                paste(dimmed(resize(icon, BAN)), x, top + (PICK - BAN) // 2)
+                loaded += 1
+            x += BAN + GAP // 2
+
+    return png_encode(width, height, canvas) if loaded else None
+
+
+# Score MVP sur 100 : chaque critère vaut entre 0 et 1, multiplié par son poids.
+# La vision pèse plus que le CS pour qu'un bon support puisse être MVP.
+MVP_WEIGHTS = {"kda": 25, "kill_participation": 25, "damage": 25, "vision": 15, "cs": 10}
+MVP_KDA_MAX = 8   # un KDA de 8 ou plus donne tous les points
+
+
+def mvp_score(player, game):
+    """Score de 0 à 100 d'un joueur. Dégâts, vision et CS sont comparés au
+    meilleur des 10 joueurs ; la participation aux kills, aux kills de son équipe."""
+    everyone = game["participants"]
+    team_kills = sum(p["kills"] for p in everyone if p["side"] == player["side"])
+
+    def versus_best(key):
+        best = max((p.get(key) or 0) for p in everyone)
+        return (player.get(key) or 0) / best if best else 0
+
+    parts = {
+        "kda": min((player["kills"] + player["assists"]) / max(player["deaths"], 1) / MVP_KDA_MAX, 1),
+        "kill_participation": min((player["kills"] + player["assists"]) / team_kills, 1) if team_kills else 0,
+        "damage": versus_best("damage"),
+        "vision": versus_best("vision_score"),
+        "cs": versus_best("cs"),
+    }
+    return round(sum(MVP_WEIGHTS[k] * v for k, v in parts.items()))
+
+
+def mvp(game):
+    """MVP : le meilleur score de l'équipe GAGNANTE, qu'il soit de la team
+    ou non (un joueur hors team qui a porté la game le mérite aussi).
+    Renvoie (joueur, score), ou (None, None) si le vainqueur est inconnu."""
+    winners = [p for p in game["participants"] if p["side"] == game.get("winner")]
+    if not winners:
+        return None, None
+    scored = [(mvp_score(p, game), p["damage"], p) for p in winners]
+    score, _, player = max(scored, key=lambda s: (s[0], s[1]))   # égalité : le plus de dégâts
+    return player, score
+
+
+def game_mode(game):
+    if game.get("is_custom"):
+        return "Partie perso"
+    if game.get("queue_id") in FLEX_QUEUES:
+        return "Flex"
+    if game.get("queue_id") in NORMAL_QUEUES:
+        return "Normale"
+    return None
+
+
+def build_result_message(game, info, champion_ids=None, with_image=False):
     """Message Discord annonçant le résultat d'une game.
 
     game : game normalisée ; info : réponse de ingest_game (numéro de la
-    game dans la session, score de la série, adversaire…)."""
+    game dans la session, score de la série, adversaire…).
+    with_image : la draft est jointe en image (draft.png) ; sinon elle est
+    écrite en texte."""
+    champion_ids = champion_ids or {}
     number = info.get("game_number") or 1
     our_side = info.get("our_side") or game["our_side"]
     winner = game["winner"]
@@ -484,55 +727,79 @@ def build_result_message(game, info):
     if our_side:
         names = {our_side: TEAM_NAME, OTHER_SIDE[our_side]: opponent}
         won = winner == our_side
-        title = f"Game {number} : {'victoire ✅' if won else 'défaite ❌'}"
+        title = f"{'🏆 Victoire' if won else '💀 Défaite'} · Game {number}"
         color = COLOR_WIN if won else COLOR_LOSS
     else:
         # Côté inconnu (dry run lancé depuis un compte qui ne jouait pas)
-        names = {"blue": "Côté bleu", "red": "Côté rouge"}
-        title = f"Game {number} : victoire du côté {'bleu' if winner == 'blue' else 'rouge'}"
+        names = {"blue": "Blue side", "red": "Red side"}
+        title = f"Game {number} · victoire du {winner} side"
         color = COLOR_NEUTRAL
 
-    minutes, seconds = divmod(game["duration_s"], 60)
-    description = f"⏱️ {minutes}:{seconds:02d}"
-    if game.get("game_version"):
-        description += " · patch " + ".".join(game["game_version"].split(".")[:2])
+    # En-tête : score de la série, puis durée, côté, mode et patch
+    lines = []
     if our_side and (info.get("wins") or info.get("losses")):
-        description += f"\nSérie : **{info.get('wins', 0)} – {info.get('losses', 0)}**"
+        lines.append(f"**{md_escape(TEAM_NAME)}  {info.get('wins', 0)} – {info.get('losses', 0)}  {md_escape(opponent)}**")
+    minutes, seconds = divmod(game["duration_s"], 60)
+    details = [f"⏱️ {minutes}:{seconds:02d}"]
+    if our_side:
+        details.append(f"{SIDE_ICON[our_side]} {our_side.capitalize()} side")
+    if game_mode(game):
+        details.append(f"🎮 {game_mode(game)}")
+    if game.get("game_version"):
+        details.append("Patch " + ".".join(game["game_version"].split(".")[:2]))
+    lines.append(" · ".join(details))
 
-    draft_lines = []
-    for side in ("blue", "red"):
-        part = draft.get(side) or {}
-        if part.get("bans"):
-            draft_lines.append(f"{SIDE_ICON[side]} Bans : {' · '.join(part['bans'])}")
-        draft_lines.append(f"{SIDE_ICON[side]} Picks : {' · '.join(part.get('picks', []))}")
-    in_order = draft.get("source") == "champ_select"
-    fields = [{
-        "name": "📋 Draft" + ("" if in_order else " (ordre des picks non relevé)"),
-        "value": "\n".join(draft_lines)[:1024],
-        "inline": False,
-    }]
+    star, star_score = mvp(game)
+    if star:
+        who = md_escape((star["riot_id"] or "?").split("#")[0])
+        kda = f"{(star['kills'] + star['assists']) / max(star['deaths'], 1):.1f}".replace(".", ",")
+        lines.append(f"⭐ MVP : **{who}** ({star['champion']}) · "
+                     f"{star['kills']}/{star['deaths']}/{star['assists']} · KDA {kda} · **{star_score}/100**")
 
-    for side in ("blue", "red"):
+    fields = []
+    if not with_image:
+        # Pas d'image : la draft en texte
+        draft_lines = []
+        for side in ("blue", "red"):
+            part = draft.get(side) or {}
+            if part.get("bans"):
+                draft_lines.append(f"{SIDE_ICON[side]} Bans : {' · '.join(part['bans'])}")
+            draft_lines.append(f"{SIDE_ICON[side]} Picks : {' · '.join(part.get('picks', []))}")
+        fields.append({"name": "📋 Draft", "value": "\n".join(draft_lines)[:1024], "inline": False})
+
+    # Une équipe par bloc : la nôtre d'abord
+    for side in ([our_side, OTHER_SIDE[our_side]] if our_side else ["blue", "red"]):
         team = game["teams"].get(side, {})
-        summary = [plural(team.get("kills", 0), "kill"), f"{short_number(team.get('gold', 0))} or",
-                   plural(team.get("towers", 0), "tour"), plural(team.get("dragons", 0), "drake"),
-                   plural(team.get("barons", 0), "baron")]
-        lines = []
+        recap = (f"⚔️ {team.get('kills', 0)} · 🪙 {short_number(team.get('gold', 0))} · 🗼 {team.get('towers', 0)}"
+                 f" · 🐉 {team.get('dragons', 0)} · 👾 {team.get('barons', 0)}")
+        rows = [recap]
         for p in game["participants"]:
             if p["side"] != side:
                 continue
-            who = f" · {md_escape(p['riot_id'].split('#')[0])}" if p["riot_id"] else ""
-            lines.append(f"**{p['champion']}**{who} : {p['kills']}/{p['deaths']}/{p['assists']}"
-                         f" · {p['cs']} CS · {short_number(p['damage'])} dégâts")
+            who = md_escape(p["riot_id"].split("#")[0]) if p["riot_id"] else "?"
+            mark = " ⭐" if p is star else ""
+            rows.append(f"**{p['champion']}** · {who}{mark} — `{p['kills']}/{p['deaths']}/{p['assists']}`"
+                        f" · {p['cs']} CS · {short_number(p['damage'])} dégâts")
         fields.append({
-            "name": f"{SIDE_ICON[side]} {names[side]}{' 🏆' if side == winner else ''} : {' · '.join(summary)}"[:256],
-            "value": "\n".join(lines)[:1024] or "–",
+            "name": f"{SIDE_ICON[side]} {names[side]}{' 🏆' if side == winner else ''}"[:256],
+            "value": "\n".join(rows)[:1024],
             "inline": False,
         })
 
+    embed = {
+        "title": title,
+        "description": "\n".join(lines),
+        "color": color,
+        "fields": fields,
+        "timestamp": game["started_at"],
+        "footer": {"text": TEAM_NAME},
+    }
+    if with_image:
+        embed["image"] = {"url": "attachment://draft.png"}
+
     return {
         "username": TEAM_NAME,
-        "embeds": [{"title": title, "description": description, "color": color, "fields": fields}],
+        "embeds": [embed],
         "allowed_mentions": {"parse": []},
     }
 
@@ -561,6 +828,34 @@ def post_json(url, body, headers=None):
         raise RuntimeError(f"connexion impossible : {e.reason}{hint}") from e
 
 
+def post_with_image(url, body, filename, image, headers=None):
+    """Comme post_json, mais avec une image jointe (format "multipart" de Discord).
+    Dans le message, l'image s'appelle attachment://<filename>."""
+    boundary = f"queenbot{int(time.time() * 1000)}"
+    crlf = bytes([13, 10])   # fin de ligne exigée par le format multipart
+    parts = [
+        f'--{boundary}'.encode() + crlf,
+        b'Content-Disposition: form-data; name="payload_json"' + crlf,
+        b"Content-Type: application/json" + crlf + crlf,
+        json.dumps(body).encode() + crlf,
+        f'--{boundary}'.encode() + crlf,
+        f'Content-Disposition: form-data; name="files[0]"; filename="{filename}"'.encode() + crlf,
+        b"Content-Type: image/png" + crlf + crlf,
+        image + crlf,
+        f"--{boundary}--".encode() + crlf,
+    ]
+    request = urllib.request.Request(
+        url, data=b"".join(parts), method="POST",
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary}", **(headers or {})})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read() or "null")
+    except urllib.error.HTTPError as e:
+        raise RuntimeError(f"erreur {e.code} : {e.read().decode(errors='replace')}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"connexion impossible : {e.reason}") from e
+
+
 def supabase_rpc(settings, function, body):
     headers = {"apikey": settings["key"]}
     # Les anciennes clés (format JWT, commençant par "eyJ") doivent aussi
@@ -570,15 +865,35 @@ def supabase_rpc(settings, function, body):
     return post_json(f"{settings['url'].rstrip('/')}/rest/v1/rpc/{function}", body, headers)
 
 
-def send_game(settings, game, dry_run=False):
-    """Enregistre la game, puis l'annonce sur Discord si la base le demande."""
+DRY_RUN_IMAGE = Path.home() / ".queenbot_draft.png"
+
+
+def make_draft_image(draft, champion_ids, our_side):
+    """Image de la draft, ou None si elle n'a pas pu être faite (le message
+    part alors avec la draft en texte : une image ratée ne bloque jamais l'annonce)."""
+    try:
+        return draft_image(draft, champion_ids, our_side)
+    except Exception as e:   # noqa: BLE001 — l'image n'est qu'un bonus
+        print(f"  Image de la draft impossible ({e}) : draft envoyée en texte.")
+        return None
+
+
+def send_game(settings, game, dry_run=False, champion_ids=None):
+    """Enregistre la game, puis l'annonce sur Discord si la base le demande.
+    champion_ids : {nom du champion: numéro}, pour les icônes de la draft."""
     label = f"Game {game['riot_game_id']}"
+    champion_ids = champion_ids or {}
 
     if dry_run:
         print(f"[DRY RUN] {label} : ce qui serait enregistré (sans les données brutes) :")
         print(json.dumps({k: v for k, v in game.items() if k != "raw"}, indent=2, ensure_ascii=False))
+        image = make_draft_image(game["draft"], champion_ids, game["our_side"])
+        if image:
+            DRY_RUN_IMAGE.write_bytes(image)
+            print(f"[DRY RUN] Image de la draft enregistrée dans {DRY_RUN_IMAGE}")
         print("[DRY RUN] Message Discord :")
-        print(json.dumps(build_result_message(game, {}), indent=2, ensure_ascii=False))
+        print(json.dumps(build_result_message(game, {}, champion_ids, with_image=bool(image)),
+                         indent=2, ensure_ascii=False))
         return
 
     info = supabase_rpc(settings, "ingest_game", {"p_token": settings["token"], "p_game": game})
@@ -592,16 +907,123 @@ def send_game(settings, game, dry_run=False):
         return
 
     webhook = info["webhook_url"].strip().split("?")[0].rstrip("/")
-    query = urllib.parse.urlencode({"wait": "true", "thread_id": event["thread_id"]})
-    message = post_json(f"{webhook}?{query}", build_result_message(game, info),
-                        # Discord refuse les requêtes avec l'User-Agent Python par défaut
-                        {"User-Agent": "QueensGambitCompanion (lcu, 1.0)"})
+    url = f"{webhook}?{urllib.parse.urlencode({'wait': 'true', 'thread_id': event['thread_id']})}"
+    # Discord refuse les requêtes avec l'User-Agent Python par défaut
+    headers = {"User-Agent": "QueensGambitCompanion (lcu, 1.0)"}
+    our_side = info.get("our_side") or game["our_side"]
+    image = make_draft_image(info.get("draft") or game["draft"], champion_ids, our_side)
+    body = build_result_message(game, info, champion_ids, with_image=bool(image))
+    message = (post_with_image(url, body, "draft.png", image, headers) if image
+               else post_json(url, body, headers))
     supabase_rpc(settings, "mark_game_notified", {
         "p_token": settings["token"],
         "p_riot_game_id": game["riot_game_id"],
         "p_message_id": message["id"],
     })
     print("  Résultat annoncé dans le post Discord.")
+
+
+# ---------------------------------------------------------------------
+# Récap d'une draft dans l'ordre (image et message Discord)
+#
+# Pas encore branché : prêt pour annoncer une draft avant la game, quelle
+# que soit sa source. Une draft = {"first_pick", "blue": {"bans", "picks"},
+# "red": {...}, "order": [{"type", "side", "champion", "phase"}, …]}.
+# ---------------------------------------------------------------------
+
+def draft_order_image(order, champion_ids):
+    """Image PNG de la draft dans l'ordre, de gauche à droite : une ligne par
+    phase (bans puis picks). Bans en petit et en gris, picks en grand ;
+    chaque icône est encadrée de la couleur de l'équipe qui a joué.
+    None si aucune icône n'a pu être chargée."""
+    phases = [[a for a in order if a.get("phase") == n] for n in (1, 2)]
+    phases = [phase for phase in phases if phase]
+    if not phases:
+        return None
+
+    def count(phase, kind):
+        return sum(1 for a in phase if a["type"] == kind)
+
+    # Les picks des deux phases commencent à la même colonne
+    picks_x = PAD + max(count(phase, "ban") for phase in phases) * (BAN + GAP) + 3 * GAP
+    width = picks_x + max(count(phase, "pick") for phase in phases) * (PICK + GAP) + PAD
+    height = PAD * 2 + len(phases) * PICK + (len(phases) - 1) * 3 * GAP
+    canvas = [[DRAFT_BG] * width for _ in range(height)]
+    loaded = 0
+
+    def fill(x, y, w, h, color):
+        for dy in range(h):
+            canvas[y + dy][x:x + w] = [color] * w
+
+    def paste(pixels, x, y):
+        for dy, line in enumerate(pixels):
+            canvas[y + dy][x:x + len(line)] = line
+
+    for row, phase in enumerate(phases):
+        top = PAD + row * (PICK + 3 * GAP)
+        x = {"ban": PAD, "pick": picks_x}
+        for action in phase:
+            size = BAN if action["type"] == "ban" else PICK
+            y = top + (PICK - size) // 2
+            left = x[action["type"]]
+            icon = fetch_icon(champion_number(action["champion"], champion_ids))
+            border = 2 if action["type"] == "ban" else 3
+            fill(left - border, y - border, size + 2 * border, size + 2 * border, SIDE_RGB[action["side"]])
+            if icon:
+                pixels = resize(icon, size)
+                paste(dimmed(pixels) if action["type"] == "ban" else pixels, left, y)
+                loaded += 1
+            else:
+                fill(left, y, size, size, DRAFT_BG)
+            x[action["type"]] += size + GAP
+
+    return png_encode(width, height, canvas) if loaded else None
+
+
+def build_draft_message(row, info, with_image=False):
+    """Message Discord du récap d'une draft.
+
+    row : {"game_number", "blue_name", "red_name", "draft"} ;
+    info : {"series": {"fearless", "ironman", "game_amount"}} (facultatif)."""
+    draft = row["draft"]
+    order = draft.get("order") or []
+    series = info.get("series") or {}
+    names = {"blue": row.get("blue_name") or "Blue side", "red": row.get("red_name") or "Red side"}
+
+    def line(actions):
+        return " · ".join(f"{SIDE_ICON[a['side']]} {a['champion']}" for a in actions) or "–"
+
+    lines = [f"{SIDE_ICON['blue']} **{md_escape(names['blue'])}**  vs  {SIDE_ICON['red']} **{md_escape(names['red'])}**"]
+    details = [f"First pick : {SIDE_ICON[draft.get('first_pick', 'blue')]} {md_escape(names[draft.get('first_pick', 'blue')])}"]
+    if series.get("fearless"):
+        details.append("🔥 Fearless" + (" ironman" if series.get("ironman") else ""))
+    if series.get("game_amount", 1) > 1:
+        details.append(f"BO{series['game_amount']}")
+    lines.append(" · ".join(details))
+
+    fields = []
+    for phase in (1, 2):
+        for kind, label in (("ban", "🚫 Bans"), ("pick", "✅ Picks")):
+            actions = [a for a in order if a.get("phase") == phase and a["type"] == kind]
+            if actions:
+                fields.append({"name": f"{label} · phase {phase}", "value": line(actions)[:1024], "inline": False})
+
+    # Compo finale de chaque équipe
+    for side in ("blue", "red"):
+        picks = (draft.get(side) or {}).get("picks") or []
+        fields.append({"name": f"{SIDE_ICON[side]} {names[side]}"[:256],
+                       "value": "\n".join(picks)[:1024] or "–", "inline": True})
+
+    embed = {
+        "title": f"📋 Draft · Game {row['game_number']}",
+        "description": "\n".join(lines),
+        "color": COLOR_NEUTRAL,
+        "fields": fields,
+        "footer": {"text": TEAM_NAME},
+    }
+    if with_image:
+        embed["image"] = {"url": "attachment://draft.png"}
+    return {"username": TEAM_NAME, "embeds": [embed], "allowed_mentions": {"parse": []}}
 
 
 # ---------------------------------------------------------------------
@@ -647,7 +1069,7 @@ class Companion:
                     print(f"Game {game_id} ignorée (moins de {MIN_TEAM_PLAYERS} joueurs de la team "
                           f"dans la même équipe).")
                 else:
-                    send_game(self.settings, normalised, self.dry_run)
+                    send_game(self.settings, normalised, self.dry_run, self.champion_ids())
             except RuntimeError as e:
                 print(f"Game {game_id} : envoi impossible ({e}).")
                 if "Jeton du companion invalide" in str(e):
@@ -656,6 +1078,15 @@ class Companion:
                 return False
         self.drafts.pop(game_id, None)
         return True
+
+    def champion_ids(self):
+        """{nom: numéro} : noms du client (sa langue), plus les noms français
+        et anglais de Riot (les clients des joueurs ne sont pas tous en français)."""
+        ids = dict(riot_champion_ids())
+        for champion_id, name in self.champions.items():
+            ids[name] = champion_id
+            ids[champ_key(name)] = champion_id
+        return ids
 
     def team_ids(self):
         """Riot ID de la team, relus à chaque game (la liste peut changer).

@@ -6,9 +6,11 @@
 //   1. Petits utilitaires (sélection d'éléments, création de HTML)
 //   2. Connexion à Supabase
 //   3. Gestion de la session (connecté / pas membre / pas connecté)
+//   4. Discord (webhook des admins) et message temporaire
 //
 // Chaque page charge config.js, puis ce fichier, puis son propre script
-// (app.js pour le planning, stats.js pour les statistiques), qui termine
+// (app.js pour le planning, draft.js pour les drafts, stats.js pour les
+// statistiques), qui termine
 // par startSession(…) pour dire quoi charger une fois le membre reconnu.
 // =====================================================================
 
@@ -195,4 +197,46 @@ function startSession(onReady) {
       setTimeout(() => handleSession(session), 0);
     }
   });
+}
+
+
+// ---------------------------------------------------------------------
+// 4. Discord et messages (utilisés par le planning et la page Drafts)
+//
+// Les posts Discord passent par un webhook, appelé directement depuis le
+// navigateur d'un admin. Son URL est secrète : elle n'est pas dans le
+// code, la base ne la donne qu'aux admins (fonction discord_forum_config).
+// ---------------------------------------------------------------------
+
+// Demandée une seule fois par chargement de page
+let discordConfigPromise = null;
+
+function discordConfig() {
+  discordConfigPromise ??= (async () => {
+    const { data, error } = await db.rpc("discord_forum_config");
+    if (error) throw new Error(error.message);
+    if (!data?.webhook_url) return null;
+    return {
+      // Sans paramètres ni "/" final, pour pouvoir y ajouter les nôtres
+      webhook: data.webhook_url.trim().split("?")[0].replace(/\/+$/, ""),
+      roleId: data.role_id || null,
+    };
+  })();
+  // En cas d'échec, on réessaiera au prochain enregistrement
+  discordConfigPromise.catch(() => { discordConfigPromise = null; });
+  return discordConfigPromise;
+}
+
+// Neutralise la mise en forme Discord dans un texte saisi (un pseudo
+// comme "xX_Dark_Xx" passerait sinon en italique).
+const mdEscape = (text) => String(text).replace(/([\\*_~`|>\[\]])/g, "\\$1");
+
+// Petit message qui s'affiche quelques secondes en bas de l'écran
+let toastTimer;
+function showToast(message) {
+  const toast = $("#toast");
+  toast.textContent = message;
+  toast.classList.add("is-visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3000);
 }

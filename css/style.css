@@ -866,6 +866,165 @@ main {
 .event-discord:hover { color: var(--nacre); }
 
 
+/* ---------- Page Drafts ----------
+   Même logique que le récap d'une game : la couleur du côté (blue / red)
+   encadre tout ce qu'une équipe a joué, les bans sont en gris. */
+
+.draft-back { margin: 0 0 .5rem; font-size: .9rem; }
+.draft-back a { color: var(--texte-doux); }
+.draft-back a:hover { color: var(--vanille-clair); }
+
+/* Liste des sessions */
+.draft-sessions { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.draft-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .25rem 1rem;
+  padding: .7rem 1rem;
+  border: 1px solid var(--bord);
+  border-radius: 12px;
+  background: var(--fond);
+  color: var(--texte);
+  text-decoration: none;
+}
+.draft-session:hover { border-color: var(--vanille); }
+.draft-session:hover .session-title { color: var(--vanille-clair); }
+
+.draft-check { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem 0; font-weight: 600; }
+.seg:disabled { cursor: default; }
+
+/* Plateau : blue side | saisie | red side */
+.draft-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 19rem) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.draft-team {
+  padding: .75rem;
+  border-left: 3px solid var(--side);
+  border-radius: 0 12px 12px 0;
+  background: color-mix(in oklab, var(--side) 7%, var(--surface));
+}
+.draft-team-name { margin: 0 0 .6rem; font-size: .9rem; color: var(--texte-doux); }
+.draft-team-name strong { color: var(--side); }
+.draft-bans { display: flex; gap: .35rem; margin-bottom: .75rem; }
+.draft-picks { display: grid; gap: .4rem; }
+
+.draft-slot {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 9px;
+  background: var(--fond);
+  color: var(--texte);
+  font: 600 .95rem var(--font-texte);
+  text-align: left;
+  cursor: pointer;
+}
+.draft-slot:disabled { cursor: default; }
+.draft-slot:not(:disabled):hover { border-color: var(--bord); }
+.draft-slot.is-ban { width: 2.6rem; height: 2.6rem; justify-content: center; }
+.draft-slot.is-pick { min-height: 3.8rem; padding-right: .6rem; }
+.draft-slot img { display: block; border-radius: 7px; }
+.draft-slot.is-ban img { width: 100%; height: 100%; filter: grayscale(1) brightness(.75); }
+.draft-slot.is-pick img { width: 3.5rem; height: 3.5rem; }
+.draft-slot-code {
+  display: grid;
+  place-items: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  font-size: .8rem;
+  color: var(--texte-doux);
+}
+.draft-slot.is-pick .draft-slot-code { width: 3.5rem; height: 3.5rem; }
+.draft-slot.is-skipped { opacity: .6; }
+.draft-slot.is-active {
+  border-color: var(--vanille);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--vanille) 25%, transparent);
+}
+
+/* Saisie */
+.draft-center { position: relative; }
+.draft-step { margin: 0 0 .5rem; font-weight: 600; color: var(--vanille-clair); }
+.draft-entry input {
+  width: 100%;
+  padding: .65rem .8rem;
+  border-radius: 10px;
+  border: 1px solid var(--bord);
+  background: var(--fond);
+  color: var(--texte);
+  font: inherit;
+  font-size: 1.05rem;
+}
+.draft-entry input:focus-visible { border-color: var(--vanille); }
+.draft-suggestions {
+  list-style: none;
+  margin: .35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.draft-suggestions li {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .3rem .5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.draft-suggestions li img { border-radius: 6px; }
+.draft-suggestions li.is-highlighted { background: var(--surface-2); color: var(--vanille-clair); }
+.draft-suggestions li.is-unavailable { opacity: .45; cursor: not-allowed; }
+.draft-suggestion-why { margin-left: auto; font-size: .78rem; color: var(--texte-doux); }
+.draft-entry-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 .4rem; }
+
+/* Ordre complet de la draft */
+.draft-order {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: center;
+}
+.draft-order-item {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 2px solid var(--side);
+  border-radius: 8px;
+  background: var(--fond);
+  font-size: .75rem;
+  color: var(--texte-doux);
+  cursor: pointer;
+}
+.draft-order-item.is-ban { width: 1.9rem; height: 1.9rem; }
+.draft-order-item.is-ban img { filter: grayscale(1) brightness(.75); }
+.draft-order-item img { width: 100%; height: 100%; border-radius: 5px; }
+.draft-order-item.is-active { box-shadow: 0 0 0 3px var(--vanille); }
+/* Séparation visuelle entre les deux phases (après la 12e étape) */
+.draft-order-item:nth-child(12) { margin-right: 1rem; }
+
+.draft-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
+
+@media (max-width: 860px) {
+  .draft-board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .draft-center { grid-column: 1 / -1; order: -1; }
+}
+/* Téléphone : les deux équipes l'une sous l'autre */
+@media (max-width: 600px) {
+  .draft-board { grid-template-columns: minmax(0, 1fr); }
+  .draft-slot.is-pick { min-height: 3.2rem; }
+  .draft-slot.is-pick img, .draft-slot.is-pick .draft-slot-code { width: 3rem; height: 3rem; }
+}
+
+
 /* ---------- Message temporaire ---------- */
 
 .toast {

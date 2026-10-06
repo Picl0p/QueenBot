@@ -318,6 +318,7 @@ function fill(selector, rows, emptyMessage, build) {
 
 const DDRAGON = "https://ddragon.leagueoflegends.com";
 const championIcons = new Map();   // nom simplifié → adresse de l'icône
+const championNames = new Map();   // nom simplifié → nom français
 
 // "Kai'Sa" → "kaisa", "Maître Yi" → "maitreyi" : accents, espaces et ponctuation ne comptent pas
 const champKey = (name) => String(name || "").normalize("NFD").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
@@ -326,18 +327,41 @@ async function loadChampionIcons() {
   try {
     const versions = await (await fetch(`${DDRAGON}/api/versions.json`)).json();
     const version = versions[0];   // patch le plus récent
-    const lists = await Promise.all(["fr_FR", "en_US"].map(async (locale) =>
+    const [fr, en] = await Promise.all(["fr_FR", "en_US"].map(async (locale) =>
       (await fetch(`${DDRAGON}/cdn/${version}/data/${locale}/champion.json`)).json()));
-    for (const list of lists) {
+    // Numéro du champion → nom français
+    const frenchName = new Map(Object.values(fr.data).map((c) => [c.key, c.name]));
+    for (const list of [fr, en]) {
       for (const champion of Object.values(list.data)) {
         const url = `${DDRAGON}/cdn/${version}/img/champion/${champion.image.full}`;
-        // Nom affiché, identifiant interne ("MonkeyKing") et numéro : tous mènent à l'icône
-        for (const name of [champion.name, champion.id, champion.key]) championIcons.set(champKey(name), url);
+        // Nom affiché, identifiant interne ("MonkeyKing") et numéro : tous mènent à l'icône et au nom français
+        for (const name of [champion.name, champion.id, champion.key]) {
+          championIcons.set(champKey(name), url);
+          championNames.set(champKey(name), frenchName.get(champion.key) || champion.name);
+        }
       }
     }
   } catch (err) {
     console.warn("Icônes des champions indisponibles :", err);
   }
+}
+
+// Le même champion peut arriver sous plusieurs noms, selon la langue du
+// client de la personne qui a envoyé la game. On ramène tout au nom
+// français, pour ne pas le compter en double.
+const frenchChampion = (name) => championNames.get(champKey(name)) || name;
+
+function frenchChampionNames(games) {
+  for (const g of games) {
+    for (const p of g.game_participants) p.champion = frenchChampion(p.champion);
+    for (const side of ["blue", "red"]) {
+      const part = g.draft?.[side];
+      if (!part) continue;
+      part.bans = (part.bans || []).map(frenchChampion);
+      part.picks = (part.picks || []).map(frenchChampion);
+    }
+  }
+  return games;
 }
 
 // Icône seule (le nom reste lisible au survol et par les lecteurs d'écran).
@@ -619,7 +643,7 @@ async function loadStats() {
     ]);
     if (players.error) throw new Error(players.error.message);
     state.players = players.data;
-    state.games = games;
+    state.games = frenchChampionNames(games);
   } catch (err) {
     return showError(`Impossible de charger les statistiques : ${err.message}`);
   }

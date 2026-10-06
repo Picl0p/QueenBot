@@ -11,11 +11,13 @@ Site statique (HTML/CSS/JS) branché sur Supabase.
 ## Structure
 
 - `index.html` : page Planning (rendez-vous et échiquier des dispos)
+- `draft.html` : page Drafts (saisie des drafts de scrim, récap Discord)
 - `stats.html` : page Statistiques (winrate, champions, draft, joueurs, historique)
 - `css/style.css` : thème (couleurs de la team en haut du fichier)
 - `js/config.js` : configuration Supabase, plage horaire de l'échiquier, début de saison
 - `js/common.js` : ce que les deux pages partagent (connexion Discord, session)
 - `js/app.js` : planning, échiquier des dispos, posts Discord
+- `js/draft.js` : saisie des drafts et récap Discord
 - `js/stats.js` : calcul et affichage des statistiques
 - `assets/` : logo, favicon, bannière
 - `sql/` : migrations Supabase, à exécuter dans l'ordre (SQL Editor)
@@ -39,11 +41,31 @@ Le webhook ne peut pas renommer un post : si la date ou l'adversaire change, le
 titre est à corriger à la main dans Discord. Les types de rendez-vous qui ont
 droit à un post se règlent dans `js/config.js` (`DISCORD_POST_TYPES`).
 
+## Drafts (page Drafts)
+
+En scrim, la draft se fait sur drafter.lol puis on picke à l'aveugle dans le
+client : la game enregistrée par le companion n'a ni bans ni ordre. Un admin
+saisit donc la draft sur le site, en même temps que sur drafter :
+
+- Depuis le planning, lien « Draft » d'un scrim ou d'un match officiel (ou menu Drafts).
+- Un onglet par game de la série ; on indique notre côté et le first pick.
+- On tape les champions dans l'ordre de la draft (« ahr » puis Entrée → Ahri) ;
+  les noms anglais marchent aussi. En fearless, les champions joués dans les
+  games précédentes de la série sont refusés.
+- « Enregistrer et poster sur Discord » envoie le récap (draft dans l'ordre, en
+  image et en texte) dans le post de la session. Le reposter met le message à jour.
+- La draft N est recopiée dans la game N de la session, que la game soit jouée
+  avant ou après la saisie : ses bans et son ordre arrivent dans les Statistiques.
+
+Mise en place : exécuter `sql/10_saisie_drafts.sql`. La saisie est réservée aux
+admins (comme le planning) ; les autres membres voient les drafts.
+
 ## Companion LCU (games, drafts, stats)
 
 `scripts/lcu_companion.py` tourne sur le PC Windows de la personne qui récupère
 les games, à côté du client LoL. Il enregistre dans Supabase la draft, le résultat
-et les stats des 10 joueurs, puis annonce le résultat dans le post Discord de la session.
+et les stats des 10 joueurs, puis annonce le résultat dans le post Discord de la session
+(avec la draft en image : icônes des picks et des bans).
 
 Il ne garde que les games perso, les flex et les normales (draft, aveugle, partie
 rapide) où au moins 4 joueurs de la team sont dans la même équipe.

@@ -175,6 +175,10 @@ function renderEvents(events) {
           ev.status !== "confirme" ? el("span", { class: "event-status", text: STATUS_LABELS[ev.status] }) : null,
           ev.discord_thread_url
             ? el("a", { class: "event-discord", href: ev.discord_thread_url, target: "_blank", rel: "noopener", text: "Post Discord" })
+            : null,
+          // Saisie des drafts (page Drafts) pour les scrims et les matchs officiels
+          ["scrim", "match_officiel"].includes(ev.type)
+            ? el("a", { class: "event-discord", href: `draft.html?event=${ev.id}`, text: "Draft" })
             : null
         ),
         ev.notes ? el("p", { class: "event-notes", text: ev.notes }) : null,
@@ -434,25 +438,6 @@ async function deleteEvent() {
 // code, la base ne la donne qu'aux admins (fonction discord_forum_config).
 // ---------------------------------------------------------------------
 
-// Demandée une seule fois par chargement de page
-let discordConfigPromise = null;
-
-function discordConfig() {
-  discordConfigPromise ??= (async () => {
-    const { data, error } = await db.rpc("discord_forum_config");
-    if (error) throw new Error(error.message);
-    if (!data?.webhook_url) return null;
-    return {
-      // Sans paramètres ni "/" final, pour pouvoir y ajouter les nôtres
-      webhook: data.webhook_url.trim().split("?")[0].replace(/\/+$/, ""),
-      roleId: data.role_id || null,
-    };
-  })();
-  // En cas d'échec, on réessaiera au prochain enregistrement
-  discordConfigPromise.catch(() => { discordConfigPromise = null; });
-  return discordConfigPromise;
-}
-
 async function discordRequest(method, url, body) {
   const res = await fetch(url, {
     method,
@@ -467,10 +452,6 @@ async function discordRequest(method, url, body) {
   }
   return res.status === 204 ? null : res.json();
 }
-
-// Neutralise la mise en forme Discord dans un texte saisi (un pseudo
-// comme "xX_Dark_Xx" passerait sinon en italique).
-const mdEscape = (text) => String(text).replace(/([\\*_~`|>\[\]])/g, "\\$1");
 
 // 21:00 → "21h00"
 const heureDiscord = (d) => `${d.getHours()}h${String(d.getMinutes()).padStart(2, "0")}`;
@@ -741,16 +722,6 @@ function renderMyStatus() {
   const button = $("#edit-btn");
   button.hidden = state.editing || isPastWeek();
   button.textContent = state.mySubmission ? "Modifier mes dispos" : "Indiquer mes dispos";
-}
-
-// Petit message qui s'affiche quelques secondes en bas de l'écran
-let toastTimer;
-function showToast(message) {
-  const toast = $("#toast");
-  toast.textContent = message;
-  toast.classList.add("is-visible");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 3000);
 }
 
 function renderBrushes() {
