@@ -75,7 +75,6 @@ const NO_DIVISION = ["MASTER", "GRANDMASTER", "CHALLENGER"];
 
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
 const ROLE_NAMES = { top: "Top", jungle: "Jungle", mid: "Mid", adc: "ADC", support: "Support" };
-const STATUS_NAMES = { remplacant: "Remplaçant", coach: "Coach" };
 
 
 // ---------------------------------------------------------------------
@@ -213,7 +212,7 @@ function playerCard(player) {
   const smurfs = accounts.filter((a) => !a.is_main);
   // Tous les comptes du joueur ensemble : ce qu'il travaille, peu importe sur lequel
   const games = filteredGames(player.id, state.games, state.period, state.queue);
-  const role = [ROLE_NAMES[player.main_role], STATUS_NAMES[player.status]].filter(Boolean).join(" · ");
+  const role = ROLE_NAMES[player.main_role] || "";
 
   const card = el("section", { class: "stat-block player-card" },
     el("header", { class: "player-head" },
@@ -270,9 +269,10 @@ function renderFilters() {
 
 function render() {
   renderFilters();
-  // Du top au support, puis ceux sans rôle (le coach en dernier)
-  const rank = (p) => (p.status === "coach" ? 99 : ROLE_ORDER.includes(p.main_role) ? ROLE_ORDER.indexOf(p.main_role) : 50);
-  const sorted = [...state.players].sort((a, b) => rank(a) - rank(b) || a.pseudo.localeCompare(b.pseudo, "fr"));
+  // Seulement les titulaires (ni coach ni remplaçants), du top au support
+  const rank = (p) => (ROLE_ORDER.includes(p.main_role) ? ROLE_ORDER.indexOf(p.main_role) : 50);
+  const sorted = state.players.filter((p) => p.status === "titulaire")
+    .sort((a, b) => rank(a) - rank(b) || a.pseudo.localeCompare(b.pseudo, "fr"));
   $("#players").replaceChildren(...sorted.map(playerCard));
   $("#players-empty").hidden = state.accounts.length > 0;
 }

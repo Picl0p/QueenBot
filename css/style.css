@@ -19,11 +19,12 @@
    ===================================================================== */
 
 :root {
-  /* Important : nacre (cases "toute l'équipe", étiquettes, pastilles) */
-  --vanille:       #F7F1F6;
+  /* Important : nacre doux, légèrement lilas pour ne pas éblouir sur le violet
+     (cases "toute l'équipe", étiquettes, pastilles) */
+  --vanille:       #DCD1EC;
   --beige:         #D9CCF5;   /* lavande nacrée : second ton du bouton, jour actuel */
   --vanille-clair: #EDE4FA;   /* texte nacré (dates, liens survolés) */
-  --grad:          linear-gradient(135deg, #FFFFFF, #F4EEF8 45%, #D9CCF5);   /* reflet nacré → lavande */
+  --grad:          linear-gradient(135deg, #EAE2F5, #CDBDEE 50%, #A88FE6);   /* bouton principal : nacre doux → lavande → violet clair */
   --nuit:          #1A1030;   /* texte foncé posé sur la nacre */
 
   --poudre:   #D7BFF3;   /* orchidée : mode saisie, "à éviter", erreurs */
@@ -217,7 +218,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .btn-primary {
   background: var(--grad);
   color: var(--nuit);
-  box-shadow: 0 6px 20px rgb(217 204 245 / .28);
+  box-shadow: 0 6px 18px rgb(168 143 230 / .28);
 }
 .btn-primary:hover { filter: brightness(1.1); }
 

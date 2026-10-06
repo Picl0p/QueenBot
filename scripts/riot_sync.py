@@ -1,7 +1,7 @@
 """
 Classement et games récentes de chaque joueur, pour la page « Joueurs ».
 
-Pour chaque compte LoL de la team (compte principal et smurfs, saisis
+Pour chaque compte LoL des titulaires (compte principal et smurfs, saisis
 dans « Mon profil »), le script demande à l'API de Riot :
   * le rang soloQ et flex (palier, division, LP, victoires, défaites) ;
   * les dernières games de soloQ, de flex et de normale (champion,
@@ -72,6 +72,31 @@ DRY_RUN = env("DRY_RUN", required=False).lower() == "true"
 # Riot
 # ---------------------------------------------------------------------
 
+def key_refused(error, url):
+    """Message clair quand Riot refuse la clé : sa réponse, l'appel concerné, et quoi vérifier."""
+    try:
+        detail = json.loads(error.read()).get("status", {}).get("message", "")
+    except (ValueError, AttributeError):
+        detail = ""
+    key = env("RIOT_API_KEY")
+    endpoint = "/" + url.split("/", 3)[3].split("?")[0]
+    hints = []
+    if not key.startswith("RGAPI-"):
+        hints.append("la clé ne commence pas par « RGAPI- » : le secret RIOT_API_KEY est sans doute mal collé (guillemets, espace, morceau manquant)")
+    elif error.code == 401:
+        hints.append("Riot ne reconnaît aucune clé dans la demande")
+    else:
+        hints.append("clé expirée (une clé de développement ne dure que 24 h : voir sa date sur developer.riotgames.com) "
+                     "ou clé sans accès à cette partie de l'API")
+    # On ne montre jamais la clé elle-même : seulement sa longueur et sa forme
+    shape = "commence bien par « RGAPI- »" if key.startswith("RGAPI-") else "ne commence PAS par « RGAPI- »"
+    return " ".join([
+        f"La clé Riot est refusée ({error.code}{' : ' + detail if detail else ''}) sur {endpoint}.",
+        f"Clé utilisée : {len(key)} caractères, {shape} (une clé en fait 42).",
+        f"À vérifier : {' ; '.join(hints)}.",
+    ])
+
+
 def riot(url):
     """Appelle l'API de Riot. Renvoie le JSON, ou None si la ressource n'existe pas (404)."""
     global _last_call
@@ -89,7 +114,7 @@ def riot(url):
             if e.code == 404:
                 return None
             if e.code in (401, 403):
-                sys.exit(f"La clé Riot est refusée ({e.code}) : elle est absente, expirée ou invalide.")
+                sys.exit(key_refused(e, url))
             if e.code == 429:
                 # Trop d'appels : Riot indique combien de secondes attendre
                 pause = int(e.headers.get("Retry-After", "10")) + 1
@@ -151,9 +176,13 @@ def split_riot_id(riot_id):
 
 
 def team_accounts(players):
-    """[(player_id, riot_id, is_main)] : compte principal puis smurfs de chaque joueur."""
+    """[(player_id, riot_id, is_main)] : compte principal puis smurfs de chaque
+    titulaire. Le coach et les remplaçants ne sont pas sur la page Joueurs :
+    inutile de dépenser des appels à Riot pour eux."""
     accounts = []
     for p in players:
+        if p.get("status") != "titulaire":
+            continue
         if (p.get("riot_id") or "").strip():
             accounts.append((p["id"], p["riot_id"].strip(), True))
         for smurf in p.get("smurfs") or []:
@@ -263,7 +292,7 @@ def sync_account(player_id, riot_id, is_main):
 
 
 def main():
-    players = supabase("GET", "players", {"select": "id,pseudo,riot_id,smurfs", "order": "pseudo"})
+    players = supabase("GET", "players", {"select": "id,pseudo,status,riot_id,smurfs", "order": "pseudo"})
     accounts = team_accounts(players)
     print(f"{len(accounts)} compte(s) à mettre à jour" + (" (dry run : rien n'est enregistré)" if DRY_RUN else ""))
 

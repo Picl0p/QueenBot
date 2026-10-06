@@ -68,7 +68,7 @@ admins (comme le planning) ; les autres membres voient les drafts.
 ## Page Joueurs (classement et pool récent)
 
 Pour que le coach voie ce que chacun travaille de son côté. `scripts/riot_sync.py`
-interroge l'API de Riot pour chaque compte de la team (compte principal et smurfs,
+interroge l'API de Riot pour chaque compte des titulaires (compte principal et smurfs,
 saisis dans « Mon profil ») : rang soloQ et flex, et les dernières games de soloQ,
 de flex et de normale. Les scrims et les tournois n'y sont pas (parties
 personnalisées, suivies par le companion et visibles dans les Statistiques).
