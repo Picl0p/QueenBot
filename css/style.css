@@ -1,54 +1,58 @@
 /* =====================================================================
-   Thème Queen's Gambit
+   Thème Queen's Gambit – « Nacre améthyste »
    Toutes les couleurs sont centralisées dans :root. Pour ajuster le
    thème, il suffit (en général) de modifier ces variables.
 
-   Répartition des rôles :
-     - vanille  : ce qui est IMPORTANT (bouton principal, créneau où toute
-                  l'équipe est dispo, match officiel, dates)
-     - violet   : les DONNÉES (intensité des dispos), en écho à la bannière,
-                  volontairement doux pour ne pas envahir la page
-     - nacre    : titres et filets, comme le lettrage argenté du logo
-     - poudre   : ce qui est PERSONNEL ou à nuancer (mode saisie, "à éviter")
-   Les fonds sont presque neutres (juste une pointe de prune) pour que
-   la vanille ressorte sans que tout paraisse violet.
+   Trois tons au lieu d'un seul violet :
+     - la PAGE  : un dégradé qui part du noir de la bannière, passe par le
+                  violet, puis revient au noir en bas ;
+     - les BLOCS : lilas moyen, nettement plus clair que la page ;
+     - les accents : ROSE pour les données (intensité des dispos, jauges),
+                  NACRE pour ce qui est important (titres, bouton principal,
+                  créneau où toute l'équipe est dispo), comme le lettrage
+                  argenté du logo.
+   La poudre (rose plus soutenu) marque ce qui est personnel ou à nuancer
+   (mode saisie, "à éviter").
+
+   Les noms --vanille et --beige datent de l'ancien thème : ils désignent
+   aujourd'hui la couleur "important" (nacre) et son second ton (rose).
    ===================================================================== */
 
 :root {
-  /* Accent vanille / beige crème (peu saturé, pour ne pas tirer sur le jaune) */
-  --vanille:       #EFE2C6;
-  --beige:         #D9C29E;
-  --vanille-clair: #F3E7CE;   /* texte vanille sur fond sombre */
-  --grad:          linear-gradient(135deg, #F7EEDC, var(--vanille) 45%, var(--beige));
+  /* Important : nacre (cases "toute l'équipe", étiquettes, pastilles) */
+  --vanille:       #F7F1F6;
+  --beige:         #FFB3D6;
+  --vanille-clair: #FFC7E1;   /* texte rose clair (dates, jour actuel) */
+  --grad:          linear-gradient(135deg, #FFFFFF, #F6E9F3 40%, #FFB3D6);   /* reflet nacré → rose */
+  --nuit:          #2A1027;   /* texte foncé posé sur la nacre ou le rose */
 
-  --poudre:   #E6B8B0;   /* vieux rose poudré */
+  --poudre:   #FFB3CC;   /* rose poudré */
 
   /* Côtés de la Faille, repris des icônes du client LoL */
-  --blue-side: #4FC3DC;
-  --red-side:  #F0607A;
-  --lavande:  #BBA8DC;   /* violet secondaire, désaturé */
-  --donnee:   #9B7BDB;   /* haut de l'échelle des dispos */
-  --nuit:     #1C1712;   /* texte foncé posé sur la vanille */
+  --blue-side: #6FD8F5;
+  --red-side:  #FF7D99;
+  --lavande:  #E2D8FA;   /* violet très clair, pour les détails */
+  --donnee:   #F49AC5;   /* dispos et jauges : rose doux */
 
   /* Nacre : blanc argenté du logo et de la pièce de la reine */
-  --nacre:        #F4EEF1;
-  --nacre-filet:  rgb(236 226 236 / .3);
+  --nacre:        #F7F1F6;
+  --nacre-filet:  rgb(247 241 246 / .5);
 
-  /* Fonds : presque neutres, avec le halo violet de la bannière en haut */
-  --fond:        #0E0C13;
-  --fond-lueur:  #26173D;   /* halo derrière la bannière */
-  --surface:     #1A1720;   /* blocs */
-  --surface-2:   #25212D;   /* survol, champs, pastilles */
-  --bord:        #3A3444;
+  /* La page (voir le dégradé sur body) et les blocs */
+  --fond:        #1B1236;   /* couleur de repli de la page, et fond des pastilles */
+  --fond-bloc:   #33285F;   /* ce qui est posé DANS un bloc : un cran plus foncé que lui */
+  --surface:     #43357A;   /* blocs : lilas moyen */
+  --surface-2:   #54459A;   /* survol, champs, pastilles */
+  --bord:        #7566B5;
 
-  --texte:       #F8F5F3;
-  --texte-doux:  #BFB8C6;
+  --texte:       #FDFBFF;
+  --texte-doux:  #DDD4F3;
 
   /* Échiquier */
-  --case-sombre: #221E2A;
-  --case-claire: #2B2635;
-  --case-non:    #09080D;   /* "pas dispo" */
-  --croix:       #6A6275;
+  --case-sombre: #4E4088;
+  --case-claire: #594A96;
+  --case-non:    #2C2258;   /* "pas dispo" */
+  --croix:       #9486C6;
 
   --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -56,17 +60,33 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-html { color-scheme: dark; }
+html {
+  color-scheme: dark;
+  background: #07050F;   /* au-delà du bas de page (rebond du défilement) */
+}
 
+/* Fond de page : la bannière, puis le violet, puis la nuit.
+   Le dégradé suit toute la hauteur de la page (il défile avec elle) :
+     - en haut, le noir violacé des bords de la bannière, qui s'y fond ;
+     - un halo violet qui monte sous la bannière, deux lueurs sur les côtés ;
+     - retour progressif au noir en bas de page. */
 body {
   margin: 0;
   min-height: 100vh;
   color: var(--texte);
   font: 400 1rem/1.55 var(--font-texte);
   background:
-    radial-gradient(ellipse 90% 45% at 50% 0%, var(--fond-lueur), transparent 70%),
+    /* haut : le noir de la bannière, qui s'efface en descendant */
+    linear-gradient(to bottom, #06030F 0, rgb(6 3 15 / .85) 22vh, transparent 75vh),
+    /* halo sous la bannière */
+    radial-gradient(ellipse 75% 60vh at 50% 58vh, rgb(132 66 214 / .55), transparent 70%),
+    /* lueurs latérales : rose à gauche, lavande à droite */
+    radial-gradient(ellipse 50% 70vh at 0% 95vh, rgb(244 154 197 / .13), transparent 70%),
+    radial-gradient(ellipse 50% 70vh at 100% 130vh, rgb(150 120 255 / .16), transparent 70%),
+    /* base : violet, puis la nuit en bas de page */
+    linear-gradient(to bottom, #2A1860 0, #23144F 35%, #130B2A 75%, #07050F 100%),
     var(--fond);
-  background-attachment: fixed;
+  background-repeat: no-repeat;
 }
 
 [hidden] { display: none !important; }
@@ -77,7 +97,7 @@ h1, h2 {
   line-height: 1.2;
   margin: 0 0 .75rem;
   color: var(--nacre);
-  text-shadow: 0 0 18px rgb(240 226 196 / .25);
+  text-shadow: 0 0 20px rgb(255 214 236 / .3);
 }
 h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
 h2 { font-size: 1.35rem; }
@@ -92,8 +112,9 @@ p { margin: 0 0 1rem; }
 
 /* ---------- Bannière ----------
    Proportions d'origine (pas de recadrage), hauteur limitée à 55 % de
-   l'écran pour que l'échiquier reste visible. Sur grand écran, les bords
-   se fondent dans le fond. */
+   l'écran pour que l'échiquier reste visible. Elle se fond dans le fond
+   de page : c'est l'image elle-même qui devient transparente, en bas
+   toujours, et sur les côtés quand l'écran est plus large qu'elle. */
 
 .hero {
   --hauteur-max: 55vh;
@@ -109,18 +130,21 @@ p { margin: 0 0 1rem; }
   object-fit: cover;
   display: block;
 }
+.hero img {
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
 @media (min-aspect-ratio: 11/8) {
   .hero img {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    -webkit-mask-image:
+      linear-gradient(to bottom, #000 55%, transparent),
+      linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+    mask-image:
+      linear-gradient(to bottom, #000 55%, transparent),
+      linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
   }
-}
-.hero::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 30%;
-  background: linear-gradient(to bottom, transparent, var(--fond));
 }
 
 
@@ -189,7 +213,7 @@ main {
 .btn-primary {
   background: var(--grad);
   color: var(--nuit);
-  box-shadow: 0 4px 16px rgb(226 206 170 / .3);
+  box-shadow: 0 6px 20px rgb(255 179 214 / .35);
 }
 .btn-primary:hover { filter: brightness(1.1); }
 
@@ -307,7 +331,7 @@ main {
 .event.type-match_officiel::before {
   background: var(--grad) border-box;
   border-color: transparent;
-  box-shadow: 0 0 10px rgb(226 206 170 / .6);
+  box-shadow: 0 0 10px rgb(255 179 214 / .6);
 }
 .event-empty { color: var(--texte-doux); }
 .event-empty::before { border-color: var(--bord); }
@@ -339,7 +363,7 @@ main {
   color: var(--lavande);
 }
 .type-match_officiel .event-type {
-  background: rgb(226 206 170 / .2);
+  background: rgb(255 179 214 / .2);
   color: var(--poudre);
 }
 .event-opponent { color: var(--texte-doux); }
@@ -375,13 +399,25 @@ main {
   white-space: nowrap;
 }
 .week-short { display: none; }
+/* Retour à la semaine en cours (affiché seulement quand on en est parti) */
+.this-week {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  white-space: nowrap;
+}
 
 @media (max-width: 560px) {
   .week-long { display: none; }
   .week-short { display: inline; }
-  .week-nav { gap: .4rem; }
-  .week-label { min-width: 4.2rem; }
-  .board-actions .btn-primary { padding: .55rem .85rem; font-size: .88rem; }
+  .week-nav { gap: .3rem; }
+  .week-nav .btn-icon { width: 2rem; height: 2rem; }
+  .week-label { min-width: 3.6rem; }
+  /* Sur téléphone : l'icône seule, pour que tout tienne sur la ligne */
+  .this-week-text { display: none; }
+  .this-week { padding: .35rem .55rem; font-size: 1rem; }
+  .board-actions { gap: .4rem; }
+  .board-actions .btn-primary { padding: .55rem .7rem; font-size: .85rem; }
 }
 
 /* Meilleurs créneaux de la semaine */
@@ -452,9 +488,8 @@ main {
   border-radius: 14px;
   box-shadow:
     inset 0 0 0 4px var(--surface),
-    inset 0 0 0 5px rgb(222 208 245 / .12),
-    0 0 40px rgb(120 80 190 / .1),
-    0 10px 30px rgb(0 0 0 / .4);
+    inset 0 0 0 5px rgb(247 241 246 / .18),
+    0 10px 30px rgb(10 5 30 / .35);
 }
 
 .board {
@@ -529,7 +564,7 @@ main {
 }
 /* Jouable en comptant les "à éviter" */
 .sq.is-possible {
-  outline: 2px dashed var(--beige);
+  outline: 2px dashed var(--nacre);   /* nacre, comme les cases pleines */
   outline-offset: -4px;
 }
 .sq-maybe {
@@ -1025,6 +1060,23 @@ main {
 }
 
 
+/* ---------- Blocs : relief et contenu ----------
+   Ce qui est posé DANS un bloc (tuiles, sessions, champs, cases de draft)
+   utilise --fond : on le rend un cran plus foncé que le bloc, au lieu du
+   noir de la page. */
+.state, .board-frame, .best-slots, .stat-block, .event-dialog, .draft-team {
+  --fond: var(--fond-bloc);
+}
+.state, .best-slots, .stat-block, .event-dialog, .draft-team {
+  box-shadow: 0 10px 30px rgb(10 5 30 / .35);
+}
+
+/* Dispos en rose doux : une ombre fine garde les chiffres blancs lisibles
+   sur les cases les plus claires */
+.sq { text-shadow: 0 1px 2px rgb(42 16 39 / .6); }
+.sq.is-full, .sq.is-no, .sq.is-mine { text-shadow: none; }
+
+
 /* ---------- Message temporaire ---------- */
 
 .toast {
@@ -1153,7 +1205,7 @@ main {
 .tile.side-blue .tile-label, .tile.side-red .tile-label { color: var(--side); font-weight: 600; }
 /* Le winrate : le seul grand chiffre de la page */
 .tile-hero { border-color: var(--nacre-filet); }
-.tile-hero .tile-value { font-size: 3rem; color: var(--vanille-clair); }
+.tile-hero .tile-value { font-size: 3rem; color: var(--nacre); }
 
 /* Forme récente : V / D (la lettre porte l'info, la couleur l'appuie) */
 .form {
@@ -1217,7 +1269,7 @@ main {
   width: 4.5rem;
   height: 6px;
   border-radius: 3px;
-  background: rgb(155 123 219 / .2);   /* même violet que le remplissage, plus pâle */
+  background: rgb(244 154 197 / .2);   /* même rose que le remplissage, plus pâle */
   overflow: hidden;
 }
 .meter-fill {

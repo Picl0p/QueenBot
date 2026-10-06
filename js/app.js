@@ -702,6 +702,8 @@ function renderWeekLabel() {
     span.textContent = text;
     el.append(span);
   }
+  // Retour à la semaine en cours : seulement quand on en est parti
+  $("#this-week").hidden = state.weekStart.getTime() === mondayOf(new Date()).getTime();
 }
 
 // Compte les créneaux par statut dans une Map "jour|heure" → statut
@@ -1275,6 +1277,13 @@ function changeWeek(delta) {
   loadBoard();
 }
 
+function goToCurrentWeek() {
+  if (!confirmLeaveEdit()) return;
+  state.editing = false;
+  state.weekStart = mondayOf(new Date());
+  loadBoard();
+}
+
 
 // ---------------------------------------------------------------------
 // 6. Branchements et démarrage
@@ -1282,6 +1291,7 @@ function changeWeek(delta) {
 
 $("#prev-week").addEventListener("click", () => changeWeek(-1));
 $("#next-week").addEventListener("click", () => changeWeek(1));
+$("#this-week").addEventListener("click", goToCurrentWeek);
 
 // Échiquier : un seul écouteur pour les deux plateaux (délégation
 // d'événements), qui continue de fonctionner quand les cases sont redessinées.

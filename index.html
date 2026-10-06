@@ -76,6 +76,10 @@
             <button id="prev-week" class="btn btn-icon" type="button" aria-label="Semaine précédente">‹</button>
             <span id="week-label" class="week-label"></span>
             <button id="next-week" class="btn btn-icon" type="button" aria-label="Semaine suivante">›</button>
+            <!-- Visible seulement quand on a quitté la semaine en cours -->
+            <button id="this-week" class="btn btn-ghost this-week" type="button" aria-label="Revenir à la semaine en cours" hidden>
+              <span aria-hidden="true">↺</span><span class="this-week-text">Cette semaine</span>
+            </button>
           </div>
           <button id="edit-btn" class="btn btn-primary" type="button">Indiquer mes dispos</button>
         </div>
