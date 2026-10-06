@@ -1,13 +1,18 @@
 """
-Classement et games soloQ de la team, pour la page « Joueurs ».
+Classement et games récentes de chaque joueur, pour la page « Joueurs ».
 
 Pour chaque compte LoL de la team (compte principal et smurfs, saisis
 dans « Mon profil »), le script demande à l'API de Riot :
   * le rang soloQ et flex (palier, division, LP, victoires, défaites) ;
-  * les dernières games soloQ (champion, résultat, K/D/A, CS).
+  * les dernières games de soloQ, de flex et de normale (champion,
+    résultat, K/D/A, CS), jouées seul, à plusieurs ou en team.
+Les scrims et les tournois n'y sont pas : ce sont des parties
+personnalisées, absentes de l'historique de Riot (ils sont suivis par
+le companion, voir la page Statistiques).
+
 Il range le tout dans Supabase (tables riot_accounts et soloq_games,
-voir sql/12_soloq_joueurs.sql). La page Joueurs ne fait que lire ces
-tables : la clé Riot ne quitte jamais GitHub.
+voir sql/12_soloq_joueurs.sql et sql/13_games_joueurs_files.sql). La page
+Joueurs ne fait que lire ces tables : la clé Riot ne quitte jamais GitHub.
 
 Le script est lancé toutes les heures par GitHub Actions
 (.github/workflows/riot.yml). Il n'utilise que la bibliothèque standard
@@ -36,8 +41,15 @@ from datetime import datetime, timedelta, timezone
 PLATFORM = "https://euw1.api.riotgames.com"       # classement, profil
 REGION = "https://europe.api.riotgames.com"       # comptes, historique
 
-SOLOQ = 420               # numéro de la file "classée solo/duo"
-MATCHES_PER_ACCOUNT = 10  # games récentes regardées à chaque passage
+# Files suivies : ce que chacun joue de son côté
+QUEUES = {
+    420: "soloQ",
+    440: "flex",
+    400: "normale (draft)",
+    430: "normale (aveugle)",
+    490: "normale (partie rapide)",
+}
+MATCHES_PER_QUEUE = 10    # games récentes regardées par file, à chaque passage
 KEEP_DAYS = 120           # au-delà, les vieilles games sont supprimées
 
 # Une clé personnelle autorise 100 appels par 2 minutes : on espace les
@@ -167,10 +179,11 @@ def rank_fields(entries):
 
 def game_row(match, puuid, player_id):
     """Une game de l'API Riot → ligne de soloq_games pour ce compte.
-    None pour une game annulée (remake) ou si le compte n'y est pas."""
+    None pour une game annulée (remake), d'une file non suivie, ou si le
+    compte n'y est pas."""
     info = match.get("info") or {}
     me = next((p for p in info.get("participants", []) if p.get("puuid") == puuid), None)
-    if me is None or me.get("gameEndedInEarlySurrender"):
+    if me is None or me.get("gameEndedInEarlySurrender") or info.get("queueId") not in QUEUES:
         return None
     started = info.get("gameStartTimestamp") or info.get("gameCreation") or 0
     return {
@@ -181,6 +194,7 @@ def game_row(match, puuid, player_id):
         "duration_s": int(info.get("gameDuration") or 0),
         "champion": me.get("championName") or str(me.get("championId")),
         "champion_id": me.get("championId"),
+        "queue_id": info.get("queueId"),
         "position": me.get("teamPosition") or None,
         "win": bool(me.get("win")),
         "kills": me.get("kills", 0),
@@ -195,7 +209,7 @@ def game_row(match, puuid, player_id):
 # ---------------------------------------------------------------------
 
 def sync_account(player_id, riot_id, is_main):
-    """Met à jour un compte : son rang, puis ses nouvelles games soloQ."""
+    """Met à jour un compte : son rang, puis ses nouvelles games (soloQ, flex, normales)."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     row = {"player_id": player_id, "riot_id": riot_id, "is_main": is_main, "updated_at": now, "error": None}
 
@@ -224,9 +238,12 @@ def sync_account(player_id, riot_id, is_main):
     })
     upsert("riot_accounts", [row], "player_id,riot_id")
 
-    # Games soloQ : seulement celles qu'on ne connaît pas encore
-    query = urllib.parse.urlencode({"queue": SOLOQ, "start": 0, "count": MATCHES_PER_ACCOUNT})
-    match_ids = riot(f"{REGION}/lol/match/v5/matches/by-puuid/{puuid}/ids?{query}") or []
+    # Dernières games de chaque file suivie ; on ne redemande pas celles qu'on connaît déjà
+    match_ids = []
+    for queue in QUEUES:
+        query = urllib.parse.urlencode({"queue": queue, "start": 0, "count": MATCHES_PER_QUEUE})
+        match_ids += riot(f"{REGION}/lol/match/v5/matches/by-puuid/{puuid}/ids?{query}") or []
+    match_ids = list(dict.fromkeys(match_ids))   # sans doublon, dans l'ordre
     known = set()
     if match_ids and not DRY_RUN:
         known = {g["match_id"] for g in supabase("GET", "soloq_games", {

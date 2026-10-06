@@ -1,11 +1,11 @@
 # =====================================================================
-# Classement et games soloQ (page Joueurs)
+# Classement et games récentes des joueurs (page Joueurs)
 #
 # GitHub lance scripts/riot_sync.py toutes les heures. GitHub peut prendre
 # du retard sur ses tâches programmées : les données de la page Joueurs
 # peuvent donc avoir quelques heures.
 #
-# Lancement manuel : onglet Actions > Classement soloQ > Run workflow.
+# Lancement manuel : onglet Actions > Classement et games des joueurs > Run workflow.
 #
 # Secrets à créer (Settings > Secrets and variables > Actions) :
 #   RIOT_API_KEY           clé de l'API Riot (« RGAPI-… »)
@@ -13,7 +13,7 @@
 #   SUPABASE_SERVICE_KEY   déjà créé pour les notifications
 # =====================================================================
 
-name: Classement soloQ
+name: Classement et games des joueurs
 
 on:
   schedule:
@@ -34,7 +34,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45   # le tout premier passage récupère beaucoup de games
     steps:
       - name: Récupérer le code
         uses: actions/checkout@v4

@@ -65,20 +65,32 @@ saisit donc la draft sur le site, en même temps que sur drafter :
 Mise en place : exécuter `sql/10_saisie_drafts.sql`. La saisie est réservée aux
 admins (comme le planning) ; les autres membres voient les drafts.
 
-## Page Joueurs (classement et soloQ)
+## Page Joueurs (classement et pool récent)
 
-`scripts/riot_sync.py` interroge l'API de Riot pour chaque compte de la team
-(compte principal et smurfs, saisis dans « Mon profil ») : rang soloQ et flex,
-et les dernières games soloQ. Il range le tout dans Supabase ; la page Joueurs ne
-fait que lire. GitHub le lance toutes les heures (`.github/workflows/riot.yml`).
+Pour que le coach voie ce que chacun travaille de son côté. `scripts/riot_sync.py`
+interroge l'API de Riot pour chaque compte de la team (compte principal et smurfs,
+saisis dans « Mon profil ») : rang soloQ et flex, et les dernières games de soloQ,
+de flex et de normale. Les scrims et les tournois n'y sont pas (parties
+personnalisées, suivies par le companion et visibles dans les Statistiques).
+Il range le tout dans Supabase ; la page Joueurs ne fait que lire, et propose de
+filtrer par période et par type de game. GitHub lance le script toutes les heures
+(`.github/workflows/riot.yml`).
 
 Mise en place (une seule fois) :
 
-1. Exécuter `sql/11_profil_smurfs.sql` puis `sql/12_soloq_joueurs.sql`.
+1. Exécuter `sql/11_profil_smurfs.sql`, `sql/12_soloq_joueurs.sql` puis
+   `sql/13_games_joueurs_files.sql`.
 2. Sur GitHub : Settings > Secrets and variables > Actions > New repository secret,
    nommé `RIOT_API_KEY`, avec la clé de l'API Riot (« RGAPI-… »). Ne jamais mettre
    cette clé dans un fichier du dépôt.
-3. Premier lancement à la main : onglet Actions > Classement soloQ > Run workflow.
+3. Premier lancement à la main : onglet Actions > Classement et games des joueurs >
+   Run workflow. Il est plus long que les suivants (jusqu'à 50 games par compte).
+
+Bouton « Synchroniser » (facultatif) : il lance la tâche tout de suite, sans
+attendre le passage de chaque heure. Exécuter `sql/14_bouton_synchroniser.sql`,
+puis créer un jeton GitHub et le ranger dans Supabase (section 3 de ce fichier).
+Le jeton reste dans la base : c'est elle qui appelle GitHub. Une demande au plus
+toutes les 5 minutes.
 
 Si la clé est remplacée (nouveau projet déclaré chez Riot), il suffit de changer
 la valeur du secret. Un compte mal saisi apparaît sur la page Joueurs avec le

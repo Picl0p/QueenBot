@@ -1,59 +1,59 @@
 /* =====================================================================
-   Thème Queen's Gambit – « Nacre améthyste »
+   Thème Queen's Gambit – violet nuit et nacre
    Toutes les couleurs sont centralisées dans :root. Pour ajuster le
    thème, il suffit (en général) de modifier ces variables.
 
-   Trois tons au lieu d'un seul violet :
+   Répartition des rôles :
      - la PAGE  : un dégradé qui part du noir de la bannière, passe par le
                   violet, puis revient au noir en bas ;
-     - les BLOCS : violet profond, un ton au-dessus de la page ;
-     - les accents : ROSE pour les données (intensité des dispos, jauges),
-                  NACRE pour ce qui est important (titres, bouton principal,
-                  créneau où toute l'équipe est dispo), comme le lettrage
-                  argenté du logo.
-   La poudre (rose plus soutenu) marque ce qui est personnel ou à nuancer
-   (mode saisie, "à éviter").
+     - les BLOCS : violet foncé, posés sur ce dégradé ;
+     - la NACRE : ce qui est important (titres, bouton principal, créneau
+                  où toute l'équipe est dispo), comme le lettrage argenté
+                  du logo ;
+     - le VIOLET clair : les données (intensité des dispos, jauges).
+   L'orchidée (violet rosé très pâle) marque ce qui est personnel ou à
+   nuancer (mode saisie, "à éviter", messages d'erreur).
 
-   Les noms --vanille et --beige datent de l'ancien thème : ils désignent
-   aujourd'hui la couleur "important" (nacre) et son second ton (rose).
+   Les noms --vanille, --beige et --poudre datent d'anciens thèmes : ils
+   désignent aujourd'hui la nacre, son second ton (lavande) et l'orchidée.
    ===================================================================== */
 
 :root {
   /* Important : nacre (cases "toute l'équipe", étiquettes, pastilles) */
   --vanille:       #F7F1F6;
-  --beige:         #FFB3D6;
-  --vanille-clair: #FFC7E1;   /* texte rose clair (dates, jour actuel) */
-  --grad:          linear-gradient(135deg, #FFFFFF, #F6E9F3 40%, #FFB3D6);   /* reflet nacré → rose */
-  --nuit:          #2A1027;   /* texte foncé posé sur la nacre ou le rose */
+  --beige:         #D9CCF5;   /* lavande nacrée : second ton du bouton, jour actuel */
+  --vanille-clair: #EDE4FA;   /* texte nacré (dates, liens survolés) */
+  --grad:          linear-gradient(135deg, #FFFFFF, #F4EEF8 45%, #D9CCF5);   /* reflet nacré → lavande */
+  --nuit:          #1A1030;   /* texte foncé posé sur la nacre */
 
-  --poudre:   #FFB3CC;   /* rose poudré */
+  --poudre:   #D7BFF3;   /* orchidée : mode saisie, "à éviter", erreurs */
   --or:       #FFD777;   /* doré : la couronne du coach, et rien d'autre */
 
   /* Côtés de la Faille, repris des icônes du client LoL */
   --blue-side: #6FD8F5;
   --red-side:  #FF7D99;
-  --lavande:  #E2D8FA;   /* violet très clair, pour les détails */
-  --donnee:   #F49AC5;   /* dispos et jauges : rose doux */
+  --lavande:  #C9B8F2;   /* violet clair, pour les détails */
+  --donnee:   #A88BFF;   /* dispos et jauges : violet clair */
 
   /* Nacre : blanc argenté du logo et de la pièce de la reine */
   --nacre:        #F7F1F6;
-  --nacre-filet:  rgb(247 241 246 / .5);
+  --nacre-filet:  rgb(247 241 246 / .45);
 
   /* La page (voir le dégradé sur body) et les blocs */
   --fond:        #1B1236;   /* couleur de repli de la page, et fond des pastilles */
-  --fond-bloc:   #261B50;   /* ce qui est posé DANS un bloc : un cran plus foncé que lui */
-  --surface:     #322563;   /* blocs : violet profond */
-  --surface-2:   #43357F;   /* survol, champs, pastilles */
-  --bord:        #5E4FA0;
+  --fond-bloc:   #150E2C;   /* ce qui est posé DANS un bloc : un cran plus foncé que lui */
+  --surface:     #1F1640;   /* blocs : violet foncé */
+  --surface-2:   #2C2156;   /* survol, champs, pastilles */
+  --bord:        #463A7E;
 
-  --texte:       #FDFBFF;
-  --texte-doux:  #DDD4F3;
+  --texte:       #FBF8FF;
+  --texte-doux:  #CFC5EA;
 
   /* Échiquier */
-  --case-sombre: #3C2E72;
-  --case-claire: #46377F;
-  --case-non:    #1E1544;   /* "pas dispo" */
-  --croix:       #8173B8;
+  --case-sombre: #281D4E;
+  --case-claire: #31255C;
+  --case-non:    #0F0A21;   /* "pas dispo" */
+  --croix:       #6F63A3;
 
   --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -81,8 +81,8 @@ body {
     linear-gradient(to bottom, #06030F 0, rgb(6 3 15 / .85) 22vh, transparent 75vh),
     /* halo sous la bannière */
     radial-gradient(ellipse 75% 60vh at 50% 58vh, rgb(132 66 214 / .55), transparent 70%),
-    /* lueurs latérales : rose à gauche, lavande à droite */
-    radial-gradient(ellipse 50% 70vh at 0% 95vh, rgb(244 154 197 / .13), transparent 70%),
+    /* lueurs latérales : nacrée à gauche, lavande à droite */
+    radial-gradient(ellipse 50% 70vh at 0% 95vh, rgb(217 204 245 / .10), transparent 70%),
     radial-gradient(ellipse 50% 70vh at 100% 130vh, rgb(150 120 255 / .16), transparent 70%),
     /* base : violet, puis la nuit en bas de page */
     linear-gradient(to bottom, #2A1860 0, #23144F 35%, #130B2A 75%, #07050F 100%),
@@ -98,7 +98,7 @@ h1, h2 {
   line-height: 1.2;
   margin: 0 0 .75rem;
   color: var(--nacre);
-  text-shadow: 0 0 20px rgb(255 214 236 / .3);
+  text-shadow: 0 0 20px rgb(200 170 255 / .35);
 }
 h1 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
 h2 { font-size: 1.35rem; }
@@ -217,7 +217,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .btn-primary {
   background: var(--grad);
   color: var(--nuit);
-  box-shadow: 0 6px 20px rgb(255 179 214 / .35);
+  box-shadow: 0 6px 20px rgb(217 204 245 / .28);
 }
 .btn-primary:hover { filter: brightness(1.1); }
 
@@ -335,7 +335,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .event.type-match_officiel::before {
   background: var(--grad) border-box;
   border-color: transparent;
-  box-shadow: 0 0 10px rgb(255 179 214 / .6);
+  box-shadow: 0 0 10px rgb(217 204 245 / .6);
 }
 .event-empty { color: var(--texte-doux); }
 .event-empty::before { border-color: var(--bord); }
@@ -367,7 +367,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
   color: var(--lavande);
 }
 .type-match_officiel .event-type {
-  background: rgb(255 179 214 / .2);
+  background: rgb(217 204 245 / .16);
   color: var(--poudre);
 }
 .event-opponent { color: var(--texte-doux); }
@@ -466,7 +466,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
   color: var(--nuit);
 }
 .best-tag.is-sub {
-  background: rgb(230 184 176 / .16);
+  background: rgb(215 191 243 / .14);
   color: var(--poudre);
 }
 .best-slot-empty {
@@ -580,7 +580,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .sq.is-full .sq-maybe { color: var(--nuit); }
 
 /* Le coach est là : icône à droite des chiffres */
-/* En doré avec un contour sombre : visible sur une case rose comme sur une violette */
+/* En doré avec un contour sombre : visible sur une case claire comme sur une foncée */
 .sq-coach {
   margin-left: .2rem;
   font-size: 1.15em;
@@ -619,7 +619,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
   border-color: var(--poudre);
   box-shadow:
     inset 0 0 0 4px var(--surface),
-    inset 0 0 0 5px rgb(230 184 176 / .4),
+    inset 0 0 0 5px rgb(215 191 243 / .4),
     0 10px 30px rgb(0 0 0 / .25);
 }
 .board-panel.is-editing .sq {
@@ -637,8 +637,8 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .swatch-maybe {
   background: repeating-linear-gradient(
     -45deg,
-    rgb(230 184 176 / .7) 0 5px,
-    rgb(230 184 176 / .3) 5px 10px
+    rgb(215 191 243 / .7) 0 5px,
+    rgb(215 191 243 / .3) 5px 10px
   );
   color: #fff;
   text-shadow: 0 1px 2px rgb(0 0 0 / .7);
@@ -789,7 +789,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 .btn-danger {
   margin-left: auto;
   color: var(--poudre);
-  border-color: rgb(230 184 176 / .35);
+  border-color: rgb(215 191 243 / .35);
 }
 .btn-danger:hover { color: #fff; border-color: var(--poudre); }
 
@@ -1077,8 +1077,7 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
   box-shadow: 0 10px 30px rgb(10 5 30 / .35);
 }
 
-/* Dispos en rose doux : une ombre fine garde les chiffres blancs lisibles
-   sur les cases les plus claires */
+/* Une ombre fine garde les chiffres blancs lisibles sur les cases les plus claires */
 .sq { text-shadow: 0 1px 2px rgb(42 16 39 / .6); }
 .sq.is-full, .sq.is-no, .sq.is-mine { text-shadow: none; }
 
@@ -1108,6 +1107,15 @@ a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair
 
 /* ---------- Page « Joueurs » ---------- */
 
+/* Bouton « Synchroniser », à droite des filtres, et son message de suivi */
+.filter-sync { margin-left: auto; }
+.filter-sync .btn { padding: .5rem .9rem; font-size: .9rem; }
+.sync-status { margin: -.75rem 0 1rem; min-height: 1.4em; text-align: right; }
+@media (max-width: 700px) {
+  .filter-sync { margin-left: 0; }
+  .sync-status { text-align: left; }
+}
+
 /* La page utilise toute la largeur de l'écran (le reste du site s'arrête à 1200px) */
 main.wide { max-width: 1900px; }
 
@@ -1116,7 +1124,6 @@ main.wide { max-width: 1900px; }
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
   gap: 1rem;
   align-items: start;
-  margin-top: 1rem;
 }
 .player-card { margin-bottom: 0; }
 
@@ -1134,6 +1141,9 @@ main.wide { max-width: 1900px; }
   .rank-name { font-size: 1rem; }
   .rank-record { font-size: .78rem; }
   .soloq-game { gap: .4rem; font-size: .85rem; }
+  /* Le type de game passe sous le nom du champion, pour laisser la place au nom */
+  .soloq-champ { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.2; }
+  .soloq-champ > span:first-child { max-width: 100%; }
 }
 /* Tant que l'écran n'est pas très large, l'ancienneté des games est masquée
    (elle reste lisible au survol de la ligne) */
@@ -1163,6 +1173,23 @@ main.wide { max-width: 1900px; }
 .rank-name { font-size: 1.15rem; font-weight: 700; color: var(--nacre); }
 .rank-record { font-size: .85rem; color: var(--texte-doux); }
 
+/* Pool récent : champion, nombre de games, winrate */
+.pool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
+.pool-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 3rem;
+  align-items: center;
+  gap: .6rem;
+  font-size: .9rem;
+}
+.pool-champ { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pool-games { color: var(--texte-doux); font-variant-numeric: tabular-nums; }
+.pool-games::after { content: " g."; }
+.pool-winrate { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pool-more { margin-top: .4rem; }
+.pool-more summary { cursor: pointer; font-size: .85rem; color: var(--texte-doux); }
+.pool-more[open] summary { margin-bottom: .3rem; }
+
 /* Dernières games : une ligne par game */
 .soloq-games { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
 .soloq-game {
@@ -1172,7 +1199,10 @@ main.wide { max-width: 1900px; }
   gap: .6rem;
   font-size: .9rem;
 }
-.soloq-champ { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soloq-champ { display: flex; align-items: baseline; gap: .4rem; min-width: 0; }
+.soloq-champ > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Type de game (SoloQ, Flex, Normale), en petit après le champion */
+.soloq-queue { flex: none; font-size: .72rem; color: var(--texte-doux); }
 .soloq-kda { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .soloq-when { min-width: 5.2rem; text-align: right; font-size: .8rem; color: var(--texte-doux); white-space: nowrap; }
 
@@ -1377,7 +1407,7 @@ main.wide { max-width: 1900px; }
   width: 4.5rem;
   height: 6px;
   border-radius: 3px;
-  background: rgb(244 154 197 / .2);   /* même rose que le remplissage, plus pâle */
+  background: rgb(168 139 255 / .2);   /* même violet que le remplissage, plus pâle */
   overflow: hidden;
 }
 .meter-fill {
