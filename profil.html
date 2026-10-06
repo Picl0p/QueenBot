@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon profil – Queen's Gambit</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- Polices : Cinzel (titres, écho à la bannière) + Figtree (texte) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <img src="assets/banniere.webp" alt="Bannière de la team Queen's Gambit" width="1983" height="793">
+  </div>
+
+  <main>
+    <!-- Menu et compte, sur la même ligne -->
+    <div class="top-bar">
+      <nav class="main-nav" aria-label="Pages du site">
+        <a href="index.html">Planning</a>
+        <a href="draft.html">Drafts</a>
+        <a href="joueurs.html">Joueurs</a>
+        <a href="stats.html">Statistiques</a>
+      </nav>
+      <!-- Compte : visible une fois connecté -->
+      <div id="user-zone" class="user-zone" hidden>
+        <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+        <a id="user-name" class="user-name" href="profil.html" title="Mon profil" aria-current="page"></a>
+        <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+      </div>
+    </div>
+    <!-- Un seul de ces blocs est visible à la fois (géré par common.js) -->
+
+    <section id="view-loading" class="state">
+      <p>Chargement…</p>
+    </section>
+
+    <section id="view-login" class="state" hidden>
+      <h1>Espace de la team</h1>
+      <p>Connecte-toi avec ton compte Discord pour modifier ton profil.</p>
+      <button id="login-btn" class="btn btn-primary" type="button">Se connecter avec Discord</button>
+    </section>
+
+    <section id="view-denied" class="state" hidden>
+      <h1>Accès réservé à la team</h1>
+      <p>Ton compte Discord n'est pas encore dans la liste des membres. Envoie cet identifiant à un admin pour qu'il t'ajoute :</p>
+      <div class="id-row">
+        <code id="denied-discord-id"></code>
+        <button id="copy-id-btn" class="btn btn-ghost" type="button">Copier</button>
+      </div>
+      <button id="denied-logout-btn" class="btn btn-ghost" type="button">Changer de compte</button>
+    </section>
+
+    <div id="view-app" class="stats" hidden>
+      <h1>Mon profil</h1>
+
+      <form id="profile-form" class="stat-block profile" novalidate>
+        <p id="profile-status" class="stat-hint"></p>
+
+        <div class="profile-row">
+          <div class="field">
+            <label for="pf-pseudo">Pseudo</label>
+            <input id="pf-pseudo" type="text" maxlength="30" autocomplete="off" required>
+          </div>
+          <div class="field">
+            <label for="pf-role">Rôle principal</label>
+            <select id="pf-role">
+              <option value="">Aucun</option>
+              <option value="top">Top</option>
+              <option value="jungle">Jungle</option>
+              <option value="mid">Mid</option>
+              <option value="adc">ADC</option>
+              <option value="support">Support</option>
+            </select>
+          </div>
+        </div>
+
+        <h2>Comptes League of Legends</h2>
+        <p class="stat-hint">Les games de la team sont reconnues grâce à ces comptes. Écris chaque Riot ID en entier, avec son tag : <strong>Pseudo#TAG</strong> (visible dans le client, en passant la souris sur ton pseudo).</p>
+
+        <div class="field">
+          <label for="pf-riot-id">Compte principal</label>
+          <input id="pf-riot-id" type="text" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Pseudo#TAG">
+        </div>
+
+        <div class="field">
+          <span class="field-label">Comptes secondaires (smurfs) <span class="optional">(5 au maximum)</span></span>
+          <ul id="pf-smurfs" class="smurfs"></ul>
+          <button id="pf-add-smurf" class="btn btn-ghost" type="button">+ Ajouter un compte</button>
+          <p class="field-hint">Une game jouée sur un smurf est enregistrée et comptée dans tes statistiques, comme sur ton compte principal.</p>
+        </div>
+
+        <p id="profile-error" class="edit-error" role="alert" hidden></p>
+        <div class="edit-actions">
+          <button id="pf-save" class="btn btn-primary" type="submit">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <!-- Message temporaire (ex. après enregistrement) -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Librairie Supabase (expose l'objet global `supabase`) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/profil.js"></script>
+</body>
+</html>

@@ -6,7 +6,7 @@
    Trois tons au lieu d'un seul violet :
      - la PAGE  : un dégradé qui part du noir de la bannière, passe par le
                   violet, puis revient au noir en bas ;
-     - les BLOCS : lilas moyen, nettement plus clair que la page ;
+     - les BLOCS : violet profond, un ton au-dessus de la page ;
      - les accents : ROSE pour les données (intensité des dispos, jauges),
                   NACRE pour ce qui est important (titres, bouton principal,
                   créneau où toute l'équipe est dispo), comme le lettrage
@@ -27,6 +27,7 @@
   --nuit:          #2A1027;   /* texte foncé posé sur la nacre ou le rose */
 
   --poudre:   #FFB3CC;   /* rose poudré */
+  --or:       #FFD777;   /* doré : la couronne du coach, et rien d'autre */
 
   /* Côtés de la Faille, repris des icônes du client LoL */
   --blue-side: #6FD8F5;
@@ -40,19 +41,19 @@
 
   /* La page (voir le dégradé sur body) et les blocs */
   --fond:        #1B1236;   /* couleur de repli de la page, et fond des pastilles */
-  --fond-bloc:   #33285F;   /* ce qui est posé DANS un bloc : un cran plus foncé que lui */
-  --surface:     #43357A;   /* blocs : lilas moyen */
-  --surface-2:   #54459A;   /* survol, champs, pastilles */
-  --bord:        #7566B5;
+  --fond-bloc:   #261B50;   /* ce qui est posé DANS un bloc : un cran plus foncé que lui */
+  --surface:     #322563;   /* blocs : violet profond */
+  --surface-2:   #43357F;   /* survol, champs, pastilles */
+  --bord:        #5E4FA0;
 
   --texte:       #FDFBFF;
   --texte-doux:  #DDD4F3;
 
   /* Échiquier */
-  --case-sombre: #4E4088;
-  --case-claire: #594A96;
-  --case-non:    #2C2258;   /* "pas dispo" */
-  --croix:       #9486C6;
+  --case-sombre: #3C2E72;
+  --case-claire: #46377F;
+  --case-non:    #1E1544;   /* "pas dispo" */
+  --croix:       #8173B8;
 
   --font-titre: "Cinzel", "Trajan Pro", Georgia, serif;
   --font-texte: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -197,6 +198,9 @@ main {
   border: 2px solid var(--vanille);
 }
 .user-name { font-weight: 600; }
+/* Le pseudo mène à la page « Mon profil » */
+a.user-name { color: inherit; text-decoration: none; }
+a.user-name:hover, a.user-name[aria-current="page"] { color: var(--vanille-clair); text-decoration: underline; text-underline-offset: 3px; }
 
 
 /* ---------- Boutons ---------- */
@@ -576,14 +580,16 @@ main {
 .sq.is-full .sq-maybe { color: var(--nuit); }
 
 /* Le coach est là : icône à droite des chiffres */
+/* En doré avec un contour sombre : visible sur une case rose comme sur une violette */
 .sq-coach {
   margin-left: .2rem;
-  font-size: 1.05em;
+  font-size: 1.15em;
   font-weight: 400;
-  color: var(--vanille-clair);
+  color: var(--or);
+  text-shadow: 0 0 2px var(--nuit), 0 1px 2px var(--nuit);
 }
 .sq-coach.is-maybe { opacity: .45; }
-.sq.is-full .sq-coach { color: var(--nuit); }
+.sq.is-full .sq-coach { color: #8A5A00; text-shadow: none; }   /* doré foncé sur la case nacrée */
 
 /* Pas dispo : case plus sombre que le fond, avec une croix */
 .sq.is-no,
@@ -1075,6 +1081,108 @@ main {
    sur les cases les plus claires */
 .sq { text-shadow: 0 1px 2px rgb(42 16 39 / .6); }
 .sq.is-full, .sq.is-no, .sq.is-mine { text-shadow: none; }
+
+
+/* ---------- Page « Mon profil » ---------- */
+
+.profile { max-width: 40rem; }
+.profile h2 { margin-top: 1.5rem; font-size: 1.15rem; }
+.profile-row {
+  display: grid;
+  grid-template-columns: 1fr 12rem;
+  gap: .75rem;
+}
+.field-label {
+  display: block;
+  font-weight: 600;
+  font-size: .9rem;
+  margin-bottom: .35rem;
+}
+.smurfs { list-style: none; margin: 0 0 .5rem; padding: 0; display: grid; gap: .4rem; }
+.smurf { display: flex; gap: .5rem; align-items: center; }
+.smurf input { flex: 1; min-width: 0; }
+@media (max-width: 520px) {
+  .profile-row { grid-template-columns: 1fr; }
+}
+
+
+/* ---------- Page « Joueurs » ---------- */
+
+/* La page utilise toute la largeur de l'écran (le reste du site s'arrête à 1200px) */
+main.wide { max-width: 1900px; }
+
+.players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+  align-items: start;
+  margin-top: 1rem;
+}
+.player-card { margin-bottom: 0; }
+
+/* Sur ordinateur : les cinq joueurs côte à côte, du top au support.
+   Les cartes sont plus étroites, donc plus compactes. */
+@media (min-width: 1150px) {
+  .players-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .75rem; }
+  .player-card { padding: 1rem .9rem; }
+  .player-head { gap: .6rem; }
+  .player-head h2 { font-size: 1.15rem; overflow-wrap: anywhere; }
+  .player-avatar { width: 40px; height: 40px; }
+  .player-sub { overflow-wrap: anywhere; }
+  .rank { gap: .6rem; padding: .6rem; }
+  .rank-emblem { width: 3rem; height: 3rem; }
+  .rank-name { font-size: 1rem; }
+  .rank-record { font-size: .78rem; }
+  .soloq-game { gap: .4rem; font-size: .85rem; }
+}
+/* Tant que l'écran n'est pas très large, l'ancienneté des games est masquée
+   (elle reste lisible au survol de la ligne) */
+@media (min-width: 1150px) and (max-width: 1650px) {
+  .soloq-game { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  .soloq-when { display: none; }
+  /* Rang : l'emblème au-dessus du texte, centré */
+  .rank { flex-direction: column; text-align: center; gap: .3rem; }
+}
+.player-head { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.player-head h2 { margin: 0; }
+.player-avatar { border-radius: 12px; border: 2px solid var(--nacre-filet); }
+.player-sub { margin: 0; font-size: .85rem; color: var(--texte-doux); }
+
+/* Rang : emblème, palier, bilan */
+.rank {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .75rem;
+  border-radius: 12px;
+  background: var(--fond);
+}
+.rank p { margin: 0; }
+.rank-emblem { width: 4rem; height: 4rem; object-fit: contain; flex: none; }
+.rank-none { display: grid; place-items: center; font-size: 1.5rem; color: var(--texte-doux); }
+.rank-name { font-size: 1.15rem; font-weight: 700; color: var(--nacre); }
+.rank-record { font-size: .85rem; color: var(--texte-doux); }
+
+/* Dernières games : une ligne par game */
+.soloq-games { list-style: none; margin: 0; padding: 0; display: grid; gap: .3rem; }
+.soloq-game {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .6rem;
+  font-size: .9rem;
+}
+.soloq-champ { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soloq-kda { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.soloq-when { min-width: 5.2rem; text-align: right; font-size: .8rem; color: var(--texte-doux); white-space: nowrap; }
+
+/* Comptes secondaires, repliés par défaut */
+.smurf-list { margin-top: 1rem; border-top: 1px solid var(--bord); padding-top: .75rem; }
+.smurf-list summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
+.smurf-account { margin-top: .6rem; }
+.smurf-name { margin: 0 0 .3rem; font-size: .9rem; color: var(--texte-doux); }
+.smurf-name strong { color: var(--texte); }
+.player-updated { margin: 1rem 0 0; font-size: .78rem; color: var(--texte-doux); text-align: right; }
 
 
 /* ---------- Message temporaire ---------- */

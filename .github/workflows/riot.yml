@@ -1,0 +1,53 @@
+# =====================================================================
+# Classement et games soloQ (page Joueurs)
+#
+# GitHub lance scripts/riot_sync.py toutes les heures. GitHub peut prendre
+# du retard sur ses tâches programmées : les données de la page Joueurs
+# peuvent donc avoir quelques heures.
+#
+# Lancement manuel : onglet Actions > Classement soloQ > Run workflow.
+#
+# Secrets à créer (Settings > Secrets and variables > Actions) :
+#   RIOT_API_KEY           clé de l'API Riot (« RGAPI-… »)
+#   SUPABASE_URL           déjà créé pour les notifications
+#   SUPABASE_SERVICE_KEY   déjà créé pour les notifications
+# =====================================================================
+
+name: Classement soloQ
+
+on:
+  schedule:
+    - cron: "23 * * * *"   # toutes les heures (hors de l'heure pile, plus chargée)
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Test : afficher le résultat dans les logs sans rien enregistrer"
+        type: boolean
+        default: false
+
+# Jamais deux mises à jour en même temps (elles partageraient la limite d'appels de la clé)
+concurrency:
+  group: riot-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mettre à jour le classement et les games
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python scripts/riot_sync.py

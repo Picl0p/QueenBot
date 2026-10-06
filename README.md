@@ -13,16 +13,21 @@ Site statique (HTML/CSS/JS) branché sur Supabase.
 - `index.html` : page Planning (rendez-vous et échiquier des dispos)
 - `draft.html` : page Drafts (saisie des drafts de scrim, récap Discord)
 - `stats.html` : page Statistiques (winrate, champions, draft, joueurs, historique)
+- `joueurs.html` : page Joueurs (classement et soloQ de chaque joueur)
+- `profil.html` : page Mon profil (pseudo, rôle, Riot ID et smurfs), ouverte en cliquant sur son pseudo
 - `css/style.css` : thème (couleurs de la team en haut du fichier)
 - `js/config.js` : configuration Supabase, plage horaire de l'échiquier, début de saison
 - `js/common.js` : ce que les deux pages partagent (connexion Discord, session)
 - `js/app.js` : planning, échiquier des dispos, posts Discord
 - `js/draft.js` : saisie des drafts et récap Discord
 - `js/stats.js` : calcul et affichage des statistiques
+- `js/profil.js` : modification de son profil
+- `js/joueurs.js` : affichage du classement et des games soloQ
 - `assets/` : logo, favicon, bannière
 - `sql/` : migrations Supabase, à exécuter dans l'ordre (SQL Editor)
 - `scripts/notify.py` : notifications Discord planifiées (GitHub Actions)
 - `scripts/lcu_companion.py` : récupération des games depuis le client LoL
+- `scripts/riot_sync.py` : classement et games soloQ depuis l'API Riot (GitHub Actions)
 
 ## Posts Discord des sessions
 
@@ -59,6 +64,25 @@ saisit donc la draft sur le site, en même temps que sur drafter :
 
 Mise en place : exécuter `sql/10_saisie_drafts.sql`. La saisie est réservée aux
 admins (comme le planning) ; les autres membres voient les drafts.
+
+## Page Joueurs (classement et soloQ)
+
+`scripts/riot_sync.py` interroge l'API de Riot pour chaque compte de la team
+(compte principal et smurfs, saisis dans « Mon profil ») : rang soloQ et flex,
+et les dernières games soloQ. Il range le tout dans Supabase ; la page Joueurs ne
+fait que lire. GitHub le lance toutes les heures (`.github/workflows/riot.yml`).
+
+Mise en place (une seule fois) :
+
+1. Exécuter `sql/11_profil_smurfs.sql` puis `sql/12_soloq_joueurs.sql`.
+2. Sur GitHub : Settings > Secrets and variables > Actions > New repository secret,
+   nommé `RIOT_API_KEY`, avec la clé de l'API Riot (« RGAPI-… »). Ne jamais mettre
+   cette clé dans un fichier du dépôt.
+3. Premier lancement à la main : onglet Actions > Classement soloQ > Run workflow.
+
+Si la clé est remplacée (nouveau projet déclaré chez Riot), il suffit de changer
+la valeur du secret. Un compte mal saisi apparaît sur la page Joueurs avec le
+message « Compte introuvable chez Riot ».
 
 ## Companion LCU (games, drafts, stats)
 

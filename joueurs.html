@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Joueurs – Queen's Gambit</title>
+  <link rel="icon" type="image/png" href="assets/favicon.png">
+
+  <!-- Polices : Cinzel (titres, écho à la bannière) + Figtree (texte) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div class="hero">
+    <img src="assets/banniere.webp" alt="Bannière de la team Queen's Gambit" width="1983" height="793">
+  </div>
+
+  <!-- Page large : les cinq joueurs tiennent côte à côte -->
+  <main class="wide">
+    <!-- Menu et compte, sur la même ligne -->
+    <div class="top-bar">
+      <nav class="main-nav" aria-label="Pages du site">
+        <a href="index.html">Planning</a>
+        <a href="draft.html">Drafts</a>
+        <a href="joueurs.html" aria-current="page">Joueurs</a>
+        <a href="stats.html">Statistiques</a>
+      </nav>
+      <!-- Compte : visible une fois connecté -->
+      <div id="user-zone" class="user-zone" hidden>
+        <img id="user-avatar" class="avatar" alt="" width="32" height="32">
+        <a id="user-name" class="user-name" href="profil.html" title="Mon profil"></a>
+        <button id="logout-btn" class="btn btn-ghost" type="button">Se déconnecter</button>
+      </div>
+    </div>
+    <!-- Un seul de ces blocs est visible à la fois (géré par common.js) -->
+
+    <section id="view-loading" class="state">
+      <p>Chargement…</p>
+    </section>
+
+    <section id="view-login" class="state" hidden>
+      <h1>Espace de la team</h1>
+      <p>Connecte-toi avec ton compte Discord pour voir le classement des joueurs de la team.</p>
+      <button id="login-btn" class="btn btn-primary" type="button">Se connecter avec Discord</button>
+    </section>
+
+    <section id="view-denied" class="state" hidden>
+      <h1>Accès réservé à la team</h1>
+      <p>Ton compte Discord n'est pas encore dans la liste des membres. Envoie cet identifiant à un admin pour qu'il t'ajoute :</p>
+      <div class="id-row">
+        <code id="denied-discord-id"></code>
+        <button id="copy-id-btn" class="btn btn-ghost" type="button">Copier</button>
+      </div>
+      <button id="denied-logout-btn" class="btn btn-ghost" type="button">Changer de compte</button>
+    </section>
+
+    <div id="view-app" class="stats" hidden>
+      <h1>Joueurs</h1>
+      <p class="stat-hint">Classement et dernières games en soloQ de chaque joueur. Mis à jour automatiquement, toutes les heures environ.</p>
+      <p id="players-empty" class="stat-empty" hidden>Aucun classement récupéré pour l'instant. Renseigne ton compte dans « Mon profil » : il apparaîtra à la prochaine mise à jour.</p>
+      <div id="players" class="players-grid"></div>
+    </div>
+
+    <p id="error" class="error" role="alert" hidden></p>
+  </main>
+
+  <!-- Librairie Supabase (expose l'objet global `supabase`) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/joueurs.js"></script>
+</body>
+</html>

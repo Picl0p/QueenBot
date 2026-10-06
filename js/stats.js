@@ -72,12 +72,15 @@ function sidePlayers(game, side) {
 const ourPlayers = (game) => sidePlayers(game, game.our_side);
 
 // Renvoie une fonction qui retrouve le joueur de la team derrière un Riot ID
-// (ou null). Un Riot ID enregistré sans "#TAG" est comparé sur le pseudo seul.
+// (ou null). Le compte principal et les smurfs mènent au même joueur.
+// Un Riot ID enregistré sans "#TAG" est comparé sur le pseudo seul.
 function playerFinder(players) {
   const byRiotId = new Map();
   for (const player of players) {
-    const id = normId(player.riot_id);
-    if (id) byRiotId.set(id, player);
+    for (const account of [player.riot_id, ...(player.smurfs || [])]) {
+      const id = normId(account);
+      if (id) byRiotId.set(id, player);
+    }
   }
   return (riotId) => {
     const id = normId(riotId);
@@ -637,7 +640,7 @@ async function loadStats() {
   try {
     // Les icônes se chargent en même temps ; leur échec ne bloque pas la page
     const [players, games] = await Promise.all([
-      db.from("players").select("id, pseudo, riot_id, main_role, status"),
+      db.from("players").select("*"),   // "*" : marche avant comme après la migration 11 (colonne smurfs)
       fetchGames(),
       loadChampionIcons(),
     ]);
