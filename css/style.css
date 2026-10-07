@@ -1324,7 +1324,18 @@ main.wide { max-width: 1900px; }
 }
 .stat-table .role-row:first-child th { padding-top: .3rem; }
 .stat-table .role-row strong { color: var(--nacre); font-size: .95rem; font-weight: 700; }
-.role-more { float: right; font-size: .8rem; }
+/* « + 2 autres » : déplie le reste des champions du rôle */
+.role-more {
+  float: right;
+  padding: .1rem .5rem;
+  border: 1px solid var(--bord);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texte-doux);
+  font: 600 .78rem var(--font-texte);
+  cursor: pointer;
+}
+.role-more:hover { color: var(--texte); border-color: var(--lavande); }
 @media (max-width: 860px) {
   .stat-grid, .stat-grid-3 { grid-template-columns: minmax(0, 1fr); }
 }

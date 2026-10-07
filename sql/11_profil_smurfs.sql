@@ -42,10 +42,12 @@ as $$
 begin
   perform public.check_ingest_token(p_token);
   return coalesce(
-    (select array_agg(distinct trim(id))
+    -- "account" et pas "id" : players a déjà une colonne id, Postgres refuserait
+    -- de choisir entre les deux (corrigé après coup, voir la migration 15)
+    (select array_agg(distinct trim(a.account))
        from public.players p
-      cross join lateral unnest(array[p.riot_id] || p.smurfs) as id
-      where nullif(trim(id), '') is not null),
+      cross join lateral unnest(array[p.riot_id] || p.smurfs) as a(account)
+      where nullif(trim(a.account), '') is not null),
     '{}'
   );
 end;

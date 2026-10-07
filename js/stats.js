@@ -26,6 +26,7 @@ Object.assign(state, {
   games: [],       // toutes les games, de la plus récente à la plus ancienne
   period: "30j",   // filtre de période
   type: "tout",    // filtre de type de game
+  openRoles: new Set(),   // rôles dont la liste de champions est dépliée
 });
 
 const PERIODS = [["30j", "30 derniers jours"], ["saison", "Saison"], ["tout", "Tout"]];
@@ -473,16 +474,33 @@ function renderChampions(games) {
     COL_WINRATE,
     { label: "KDA", num: true, cell: (r) => kda(r.kills, r.deaths, r.assists) },
   ];
+  const line = (row) => el("tr", {}, ...columns.map((c) => el("td", { class: c.num ? "num" : "" }, c.cell(row))));
   const rows = groups.flatMap((group) => {
-    const hidden = group.champions.length - CHAMPIONS_PER_ROLE;
+    // Au-delà des premiers champions, le reste se déplie avec le bouton de l'intertitre.
+    // Le choix est retenu (state.openRoles) : changer un filtre ne referme pas la liste.
+    const extra = group.champions.slice(CHAMPIONS_PER_ROLE).map(line);
+    const setOpen = (open) => {
+      extra.forEach((tr) => { tr.hidden = !open; });
+      button.textContent = open ? "Réduire" : `+ ${plural(extra.length, "autre")}`;
+      button.setAttribute("aria-expanded", String(open));
+    };
+    const button = el("button", {
+      type: "button", class: "role-more",
+      onclick: () => {
+        const open = !state.openRoles.has(group.role);
+        if (open) state.openRoles.add(group.role); else state.openRoles.delete(group.role);
+        setOpen(open);
+      },
+    });
+    setOpen(state.openRoles.has(group.role));
     return [
       el("tr", { class: "role-row" },
         el("th", { scope: "rowgroup", colspan: String(columns.length) },
           el("strong", { text: ROLE_NAMES[group.role] || "Sans rôle" }),
           el("span", { text: ` · ${group.players.join(", ")}` }),
-          hidden > 0 ? el("span", { class: "role-more", text: `+ ${plural(hidden, "autre")}` }) : null)),
-      ...group.champions.slice(0, CHAMPIONS_PER_ROLE).map((row) =>
-        el("tr", {}, ...columns.map((c) => el("td", { class: c.num ? "num" : "" }, c.cell(row))))),
+          extra.length ? button : null)),
+      ...group.champions.slice(0, CHAMPIONS_PER_ROLE).map(line),
+      ...extra,
     ];
   });
   $("#champions").replaceChildren(groups.length
