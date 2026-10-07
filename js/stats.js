@@ -41,6 +41,9 @@ const TYPES_SANS_BANS = ["flex", "normal"];
 const ROLE_ORDER = ["top", "jungle", "mid", "adc", "support"];
 const ROLE_NAMES = { top: "Top", jungle: "Jungle", mid: "Mid", adc: "ADC", support: "Support" };
 
+// Nombre de champions affichés par rôle dans le bloc « Champions et compos »
+const CHAMPIONS_PER_ROLE = 3;
+
 // En dessous de ce nombre de games, un duo, une compo ou un adversaire
 // n'est pas affiché : une seule game ne dit rien.
 const MIN_GAMES = 2;
@@ -136,18 +139,30 @@ function summary(games) {
   };
 }
 
-// Bloc 2 : nos champions, avec winrate et KDA
-function championStats(games, find) {
-  const map = new Map();
+// Bloc 2 : nos champions par rôle, avec winrate et KDA.
+// La base ne garde pas le poste joué dans chaque game : un champion est
+// rangé sous le rôle principal du joueur qui l'a joué (celui de son profil).
+// Renvoie [{ role, players: [pseudos], champions: [...] }], du top au
+// support, puis "sans rôle" s'il y en a.
+function championsByRole(games, find) {
+  const roles = new Map();
   for (const g of games) {
     for (const p of teamPlayers(g, find)) {
-      const entry = tally(map, p.champion, isWin(g), { champion: p.champion, kills: 0, deaths: 0, assists: 0 });
+      const player = find(p.riot_id);
+      const role = ROLE_ORDER.includes(player.main_role) ? player.main_role : "";
+      if (!roles.has(role)) roles.set(role, { role, players: new Set(), champions: new Map() });
+      const group = roles.get(role);
+      group.players.add(player.pseudo);
+      const entry = tally(group.champions, p.champion, isWin(g), { champion: p.champion, kills: 0, deaths: 0, assists: 0 });
       entry.kills += p.kills;
       entry.deaths += p.deaths;
       entry.assists += p.assists;
     }
   }
-  return [...map.values()].sort(byGames);
+  const order = (role) => (role ? ROLE_ORDER.indexOf(role) : ROLE_ORDER.length);
+  return [...roles.values()]
+    .map((group) => ({ role: group.role, players: [...group.players].sort(), champions: [...group.champions.values()].sort(byGames) }))
+    .sort((a, b) => order(a.role) - order(b.role));
 }
 
 // Bloc 2 : duos de champions joués ensemble par deux joueurs de la team
@@ -449,12 +464,33 @@ function renderSummary(games) {
 
 function renderChampions(games) {
   const find = playerFinder(state.players);
-  fill("#champions", championStats(games, find).slice(0, 15), "Aucun champion joué.", (rows) => statTable([
+
+  // Un seul tableau : un intertitre par rôle, puis ses champions les plus joués
+  const groups = championsByRole(games, find);
+  const columns = [
     { label: "Champion", cell: (r) => champLabel(r.champion) },
     COL_GAMES,
     COL_WINRATE,
     { label: "KDA", num: true, cell: (r) => kda(r.kills, r.deaths, r.assists) },
-  ], rows));
+  ];
+  const rows = groups.flatMap((group) => {
+    const hidden = group.champions.length - CHAMPIONS_PER_ROLE;
+    return [
+      el("tr", { class: "role-row" },
+        el("th", { scope: "rowgroup", colspan: String(columns.length) },
+          el("strong", { text: ROLE_NAMES[group.role] || "Sans rôle" }),
+          el("span", { text: ` · ${group.players.join(", ")}` }),
+          hidden > 0 ? el("span", { class: "role-more", text: `+ ${plural(hidden, "autre")}` }) : null)),
+      ...group.champions.slice(0, CHAMPIONS_PER_ROLE).map((row) =>
+        el("tr", {}, ...columns.map((c) => el("td", { class: c.num ? "num" : "" }, c.cell(row))))),
+    ];
+  });
+  $("#champions").replaceChildren(groups.length
+    ? el("div", { class: "table-scroll" },
+      el("table", { class: "stat-table" },
+        el("thead", {}, el("tr", {}, ...columns.map((c) => el("th", { scope: "col", class: c.num ? "num" : "", text: c.label })))),
+        el("tbody", {}, ...rows)))
+    : el("p", { class: "stat-empty", text: "Aucun champion joué par un joueur de la team." }));
 
   fill("#duos", duoStats(games, find).slice(0, 10),
     `Aucun duo joué au moins ${MIN_GAMES} fois pour l'instant.`, (rows) => statTable([

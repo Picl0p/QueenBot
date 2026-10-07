@@ -1314,6 +1314,17 @@ main.wide { max-width: 1900px; }
   gap: 1.5rem 2rem;
 }
 .stat-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Champions par rôle : une ligne d'intertitre par rôle dans le tableau */
+.stat-table .role-row th {
+  padding-top: .9rem;
+  font-size: .85rem;
+  font-weight: 400;
+  color: var(--texte-doux);
+  border-bottom-color: var(--nacre-filet);
+}
+.stat-table .role-row:first-child th { padding-top: .3rem; }
+.stat-table .role-row strong { color: var(--nacre); font-size: .95rem; font-weight: 700; }
+.role-more { float: right; font-size: .8rem; }
 @media (max-width: 860px) {
   .stat-grid, .stat-grid-3 { grid-template-columns: minmax(0, 1fr); }
 }
