@@ -451,18 +451,39 @@ async function draftImage(draft) {
   const count = (phase, type) => phase.filter((a) => a.type === type).length;
   const picksX = PAD + Math.max(...phases.map((p) => count(p, "ban"))) * (BAN + GAP) + 3 * GAP;
 
+  // Légende en haut de l'image : un carré de couleur et le nom de chaque équipe.
+  // C'est le seul repère du message Discord pour savoir qui est de quel côté.
+  const LEGEND = 44, SQUARE = 18;
+  const FONT = '600 20px "Figtree", "Segoe UI", sans-serif';
+  await document.fonts?.ready;
+  const legend = [["blue", teamName("blue")], ["red", teamName("red")]];
+
   const canvas = document.createElement("canvas");
-  canvas.width = picksX + Math.max(...phases.map((p) => count(p, "pick"))) * (PICK + GAP) + PAD;
-  canvas.height = PAD * 2 + phases.length * PICK + (phases.length - 1) * 3 * GAP;
   const ctx = canvas.getContext("2d");
+  ctx.font = FONT;
+  const legendWidth = legend.reduce((w, [, name]) => w + SQUARE + 8 + ctx.measureText(name).width + 28, 0) - 28;
+  canvas.width = Math.max(picksX + Math.max(...phases.map((p) => count(p, "pick"))) * (PICK + GAP), PAD + legendWidth) + PAD;
+  canvas.height = LEGEND + PAD * 2 + phases.length * PICK + (phases.length - 1) * 3 * GAP;
   ctx.fillStyle = "#1A1720";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Changer la taille du canvas remet la police par défaut : on la redonne
+  ctx.font = FONT;
+  ctx.textBaseline = "middle";
+  let legendX = PAD;
+  for (const [side, name] of legend) {
+    ctx.fillStyle = SIDE_RGB[side];
+    ctx.fillRect(legendX, PAD + 3, SQUARE, SQUARE);
+    ctx.fillStyle = "#F7F1F6";
+    ctx.fillText(name, legendX + SQUARE + 8, PAD + 3 + SQUARE / 2 + 1);
+    legendX += SQUARE + 8 + ctx.measureText(name).width + 28;
+  }
 
   const images = new Map(await Promise.all(draft.order.map(async (a) =>
     [a.champion, await loadImage(championByName(a.champion)?.icon || "")])));
 
   phases.forEach((phase, row) => {
-    const top = PAD + row * (PICK + 3 * GAP);
+    const top = LEGEND + PAD + row * (PICK + 3 * GAP);
     const x = { ban: PAD, pick: picksX };
     for (const action of phase) {
       const size = action.type === "ban" ? BAN : PICK;
@@ -487,8 +508,19 @@ async function draftImage(draft) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
-// Même présentation que le récap de game du companion
+// Message Discord de la draft : juste un titre et l'image, qui porte tout
+// (ordre des picks et des bans, légende des équipes). Le texte complet ne
+// sert que de repli, si l'image n'a pas pu être fabriquée.
 function draftMessage(draft, withImage) {
+  if (withImage) {
+    return {
+      username: TEAM_NAME,
+      embeds: [{ title: `📋 Draft · Game ${state.game}`, color: 0xDCD1EC, image: { url: "attachment://draft.png" } }],
+      allowed_mentions: { parse: [] },
+      attachments: [{ id: 0, filename: "draft.png" }],
+    };
+  }
+
   const names = { blue: teamName("blue"), red: teamName("red") };
   const icon = { blue: "🔵", red: "🔴" };
   const line = (actions) => actions.map((a) => `${icon[a.side]} ${a.champion}`).join(" · ") || "–";
@@ -515,9 +547,7 @@ function draftMessage(draft, withImage) {
     fields,
     footer: { text: TEAM_NAME },
   };
-  if (withImage) embed.image = { url: "attachment://draft.png" };
-  return { username: TEAM_NAME, embeds: [embed], allowed_mentions: { parse: [] },
-           attachments: withImage ? [{ id: 0, filename: "draft.png" }] : [] };
+  return { username: TEAM_NAME, embeds: [embed], allowed_mentions: { parse: [] }, attachments: [] };
 }
 
 // Poste le récap (ou met à jour le message déjà posté pour cette game)

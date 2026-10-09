@@ -662,44 +662,6 @@ def draft_image(draft, champion_ids, our_side=None):
     return png_encode(width, height, canvas) if loaded else None
 
 
-# Score MVP sur 100 : chaque critère vaut entre 0 et 1, multiplié par son poids.
-# La vision pèse plus que le CS pour qu'un bon support puisse être MVP.
-MVP_WEIGHTS = {"kda": 25, "kill_participation": 25, "damage": 25, "vision": 15, "cs": 10}
-MVP_KDA_MAX = 8   # un KDA de 8 ou plus donne tous les points
-
-
-def mvp_score(player, game):
-    """Score de 0 à 100 d'un joueur. Dégâts, vision et CS sont comparés au
-    meilleur des 10 joueurs ; la participation aux kills, aux kills de son équipe."""
-    everyone = game["participants"]
-    team_kills = sum(p["kills"] for p in everyone if p["side"] == player["side"])
-
-    def versus_best(key):
-        best = max((p.get(key) or 0) for p in everyone)
-        return (player.get(key) or 0) / best if best else 0
-
-    parts = {
-        "kda": min((player["kills"] + player["assists"]) / max(player["deaths"], 1) / MVP_KDA_MAX, 1),
-        "kill_participation": min((player["kills"] + player["assists"]) / team_kills, 1) if team_kills else 0,
-        "damage": versus_best("damage"),
-        "vision": versus_best("vision_score"),
-        "cs": versus_best("cs"),
-    }
-    return round(sum(MVP_WEIGHTS[k] * v for k, v in parts.items()))
-
-
-def mvp(game):
-    """MVP : le meilleur score de l'équipe GAGNANTE, qu'il soit de la team
-    ou non (un joueur hors team qui a porté la game le mérite aussi).
-    Renvoie (joueur, score), ou (None, None) si le vainqueur est inconnu."""
-    winners = [p for p in game["participants"] if p["side"] == game.get("winner")]
-    if not winners:
-        return None, None
-    scored = [(mvp_score(p, game), p["damage"], p) for p in winners]
-    score, _, player = max(scored, key=lambda s: (s[0], s[1]))   # égalité : le plus de dégâts
-    return player, score
-
-
 def game_mode(game):
     if game.get("is_custom"):
         return "Partie perso"
@@ -749,13 +711,6 @@ def build_result_message(game, info, champion_ids=None, with_image=False):
         details.append("Patch " + ".".join(game["game_version"].split(".")[:2]))
     lines.append(" · ".join(details))
 
-    star, star_score = mvp(game)
-    if star:
-        who = md_escape((star["riot_id"] or "?").split("#")[0])
-        kda = f"{(star['kills'] + star['assists']) / max(star['deaths'], 1):.1f}".replace(".", ",")
-        lines.append(f"⭐ MVP : **{who}** ({star['champion']}) · "
-                     f"{star['kills']}/{star['deaths']}/{star['assists']} · KDA {kda} · **{star_score}/100**")
-
     fields = []
     if not with_image:
         # Pas d'image : la draft en texte
@@ -777,8 +732,7 @@ def build_result_message(game, info, champion_ids=None, with_image=False):
             if p["side"] != side:
                 continue
             who = md_escape(p["riot_id"].split("#")[0]) if p["riot_id"] else "?"
-            mark = " ⭐" if p is star else ""
-            rows.append(f"**{p['champion']}** · {who}{mark} — `{p['kills']}/{p['deaths']}/{p['assists']}`"
+            rows.append(f"**{p['champion']}** · {who} — `{p['kills']}/{p['deaths']}/{p['assists']}`"
                         f" · {p['cs']} CS · {short_number(p['damage'])} dégâts")
         fields.append({
             "name": f"{SIDE_ICON[side]} {names[side]}{' 🏆' if side == winner else ''}"[:256],
