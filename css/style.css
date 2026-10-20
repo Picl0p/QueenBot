@@ -1336,6 +1336,7 @@ main.wide { max-width: 1900px; }
   cursor: pointer;
 }
 .role-more:hover { color: var(--texte); border-color: var(--lavande); }
+.stat-wide { grid-column: 1 / -1; }
 @media (max-width: 860px) {
   .stat-grid, .stat-grid-3 { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1471,6 +1472,18 @@ main.wide { max-width: 1900px; }
 .session summary:hover .session-title { color: var(--vanille-clair); }
 .session-date { color: var(--texte-doux); font-size: .85rem; min-width: 9rem; }
 .session-title { font-weight: 600; }
+/* Résultat de la série (scrims et matchs officiels) : le mot porte l'info */
+.session-result {
+  margin-left: auto;
+  padding: .05rem .55rem;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 700;
+}
+.session-result.is-win { background: var(--vanille); color: var(--nuit); }
+.session-result.is-loss { background: var(--case-non); color: var(--texte-doux); box-shadow: inset 0 0 0 1px var(--bord); }
+.session-result.is-draw { background: var(--surface-2); color: var(--texte); }
+.session-result + .session-score { margin-left: 0; }
 .session-score {
   margin-left: auto;
   font-weight: 700;

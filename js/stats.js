@@ -264,6 +264,7 @@ function sessionList(games) {
     if (!map.has(key)) {
       const label = GAME_TYPE_LABELS[type];
       map.set(key, {
+        type,
         date: start,
         title: event
           ? (event.opponent ? `${label} contre ${event.opponent}` : event.title)
@@ -535,8 +536,7 @@ function renderDraft(games) {
   fill("#nemesis", d.nemesis.slice(0, 8),
     `Aucun champion adverse ne nous a battus sur au moins ${MIN_GAMES} games.`, (rows) => statTable([
       { label: "Champion adverse", cell: (r) => champLabel(r.champion) },
-      { label: "Games contre", num: true, cell: (r) => String(r.games) },
-      { label: "Défaites", num: true, cell: (r) => String(r.games - r.wins) },
+      { label: "Défaites", num: true, cell: (r) => `${r.games - r.wins} sur ${r.games}` },
       { label: "Notre winrate", cell: winrateCell },
     ], rows));
 }
@@ -621,6 +621,16 @@ function gameDetail(game, number) {
   );
 }
 
+// Résultat de la série, seulement pour les scrims et matchs officiels :
+// en flex, les games s'enchaînent contre des inconnus, il n'y a pas de série.
+function sessionResult(session) {
+  if (!["scrim", "match_officiel"].includes(session.type)) return null;
+  const [cls, text] = session.wins > session.losses ? ["is-win", "Victoire"]
+    : session.wins < session.losses ? ["is-loss", "Défaite"]
+    : ["is-draw", "Égalité"];
+  return el("span", { class: `session-result ${cls}`, text });
+}
+
 function renderHistory(games) {
   const fmt = { weekday: "short", day: "numeric", month: "short", year: "numeric" };
   $("#history").replaceChildren(...sessionList(games).map((session) => {
@@ -628,6 +638,7 @@ function renderHistory(games) {
       el("summary", {},
         el("span", { class: "session-date", text: session.date.toLocaleDateString("fr-FR", fmt) }),
         el("span", { class: "session-title", text: session.title }),
+        sessionResult(session),
         el("span", { class: "session-score", text: `${session.wins} – ${session.losses}` })));
     // Le détail n'est construit qu'à la première ouverture (10 lignes par game)
     details.addEventListener("toggle", () => {
