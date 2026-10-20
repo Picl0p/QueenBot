@@ -537,7 +537,7 @@ function renderDraft(games) {
     `Aucun champion adverse ne nous a battus sur au moins ${MIN_GAMES} games.`, (rows) => statTable([
       { label: "Champion adverse", cell: (r) => champLabel(r.champion) },
       { label: "Défaites", num: true, cell: (r) => `${r.games - r.wins} sur ${r.games}` },
-      { label: "Notre winrate", cell: winrateCell },
+      { label: "Winrate", cell: winrateCell },
     ], rows));
 }
 
