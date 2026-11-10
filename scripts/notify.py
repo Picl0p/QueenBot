@@ -2,7 +2,7 @@
 Notifications Discord de la team Queen's Gambit.
 
 Deux notifications :
-  * relance  : le dimanche soir, mentionne ceux qui n'ont pas rempli
+  * relance  : le vendredi et le dimanche soir, mentionne ceux qui n'ont pas rempli
                leurs dispos de la semaine suivante ;
   * planning : chaque jour, annonce les rendez-vous du jour avec
                qui est dispo, à éviter, pas dispo ou n'a pas répondu.
@@ -172,7 +172,7 @@ def lien_site():
 
 
 # ---------------------------------------------------------------------
-# Notification 1 : relance du dimanche soir
+# Notification 1 : relance du vendredi et dimanche soir
 # ---------------------------------------------------------------------
 
 def relance(today):
