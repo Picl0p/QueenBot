@@ -13,8 +13,8 @@ name: Notifications Discord
 
 on:
   schedule:
-    - cron: "47 17 * * 0"   # relance, dimanche 19h47 (heure d'été)
-    - cron: "47 18 * * 0"   # relance, dimanche 19h47 (heure d'hiver)
+    - cron: "47 17 * * 0,5"   # relance, dimanche 19h47 (heure d'été)
+    - cron: "47 18 * * 0,5"   # relance, dimanche 19h47 (heure d'hiver)
     - cron: "47 9 * * *"   # planning du jour, 11h47 (heure d'été)
     - cron: "47 10 * * *"   # planning du jour, 11h47 (heure d'hiver)
 
