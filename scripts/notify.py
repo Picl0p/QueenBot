@@ -48,8 +48,8 @@ PARIS = ZoneInfo("Europe/Paris")
 # ⚠️ Ces chaînes doivent être IDENTIQUES à celles du workflow.
 # ---------------------------------------------------------------------
 SCHEDULES = {
-    "47 17 * * 0": ("relance", 2),    # dimanche 19h47, heure d'été
-    "47 18 * * 0": ("relance", 1),    # dimanche 19h47, heure d'hiver
+    "47 17 * * 0,5": ("relance", 2),    # dimanche 19h47, heure d'été
+    "47 18 * * 0,5": ("relance", 1),    # dimanche 19h47, heure d'hiver
     "47 9 * * *": ("planning", 2),   # tous les jours 11h47, heure d'été
     "47 10 * * *": ("planning", 1),   # tous les jours 11h47, heure d'hiver
 }
