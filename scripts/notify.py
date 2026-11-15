@@ -7,7 +7,8 @@ Deux notifications :
   * planning : chaque jour, annonce les rendez-vous du jour avec
                qui est dispo, à éviter, pas dispo ou n'a pas répondu.
 
-Le script est lancé par GitHub Actions (.github/workflows/notifications.yml).
+Le script est lancé par GitHub Actions (.github/workflows/notifications.yml),
+à l'heure pile, sur demande de Supabase (sql/17_notifications_a_l_heure.sql).
 Il n'utilise que la bibliothèque standard de Python : rien à installer.
 
 Variables d'environnement :
@@ -16,7 +17,7 @@ Variables d'environnement :
   DISCORD_WEBHOOK_URL   URL du webhook du salon Discord      (secret)
   SITE_URL              adresse du site, pour les liens      (facultatif)
   DISCORD_ROLE_ID       rôle à mentionner pour le planning   (facultatif)
-  SCHEDULE              cron qui a déclenché le script (fourni par GitHub)
+  SCHEDULE              cron GitHub qui a déclenché le script (plus utilisé)
   MODE                  "relance" ou "planning" (lancement manuel)
   DRY_RUN               "true" : affiche le message sans l'envoyer
 

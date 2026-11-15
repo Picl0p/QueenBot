@@ -49,6 +49,8 @@ Options :
   --uninstall   retire le lancement automatique
   --dry-run     n'envoie rien : affiche ce qui serait envoyé
   --game ID     (ré)envoie une game précise, puis s'arrête
+  --force       avec --game : l'envoie même s'il y avait moins de 4 joueurs
+                de la team (il en faut au moins 1)
 Sans option : tourne dans le terminal (pratique pour voir ce qui se passe).
 """
 
@@ -339,25 +341,27 @@ def norm_id(riot_id):
     return re.sub(r"\s+", "", riot_id or "").lower()
 
 
-def team_side(participants, team_ids):
-    """Côté où jouent au moins MIN_TEAM_PLAYERS joueurs de la team, ou None."""
+def team_side(participants, team_ids, min_players=MIN_TEAM_PLAYERS):
+    """Côté où jouent le plus de joueurs de la team, s'ils sont au moins
+    min_players ; sinon None."""
     def in_team(riot_id):
         # Un Riot ID enregistré sans "#TAG" est comparé sur le pseudo seul
         full = norm_id(riot_id)
         return bool(full) and (full in team_ids or full.split("#")[0] in team_ids)
 
-    for side in ("blue", "red"):
-        present = sum(1 for p in participants if p["side"] == side and in_team(p["riot_id"]))
-        if present >= MIN_TEAM_PLAYERS:
-            return side
-    return None
+    present = {side: sum(1 for p in participants if p["side"] == side and in_team(p["riot_id"]))
+               for side in ("blue", "red")}
+    side = max(present, key=present.get)
+    return side if present[side] >= max(min_players, 1) else None
 
 
-def normalise_game(game, champions, me, champ_select=None, team_ids=None):
+def normalise_game(game, champions, me, champ_select=None, team_ids=None,
+                   min_players=MIN_TEAM_PLAYERS):
     """Réponse brute du client → game au format attendu par la base (ingest_game).
 
     team_ids : Riot ID de la team (déjà passés par norm_id). "our_side" est
-    alors le côté où ils sont au moins 4, ou None : la game n'est pas pour nous.
+    alors le côté où ils sont au moins min_players (4, sauf avec --force),
+    ou None : la game n'est pas pour nous.
     Sans cette liste (dry run), on prend le côté du compte connecté."""
     identities = {i.get("participantId"): i.get("player") or {}
                   for i in game.get("participantIdentities", [])}
@@ -399,7 +403,7 @@ def normalise_game(game, champions, me, champ_select=None, team_ids=None):
         })
         slots[side] += 1
 
-    our_side = me_side if team_ids is None else team_side(participants, team_ids)
+    our_side = me_side if team_ids is None else team_side(participants, team_ids, min_players)
 
     # Objectifs par équipe
     teams = {}
@@ -985,10 +989,11 @@ def build_draft_message(row, info, with_image=False):
 # ---------------------------------------------------------------------
 
 class Companion:
-    def __init__(self, lcu, settings, dry_run):
+    def __init__(self, lcu, settings, dry_run, min_players=MIN_TEAM_PLAYERS):
         self.lcu = lcu
         self.settings = settings
         self.dry_run = dry_run
+        self.min_players = min_players   # 1 avec --force
         self.me = lcu.get("/lol-summoner/v1/current-summoner") or {}
         # Noms des champions, dans la langue du client : {id: nom}
         summary = lcu.get("/lol-game-data/assets/v1/champion-summary.json") or []
@@ -1015,13 +1020,17 @@ class Companion:
             try:
                 team_ids = self.team_ids()
                 normalised = normalise_game(game, self.champions, self.me,
-                                            self.drafts.get(game_id), team_ids)
+                                            self.drafts.get(game_id), team_ids, self.min_players)
                 if team_ids is not None and not team_ids:
                     print(f"Game {game_id} ignorée : aucun Riot ID renseigné pour la team "
                           f"(colonne riot_id de la table players). Ensuite : --game {game_id}")
                 elif team_ids is not None and normalised["our_side"] is None:
-                    print(f"Game {game_id} ignorée (moins de {MIN_TEAM_PLAYERS} joueurs de la team "
-                          f"dans la même équipe).")
+                    if self.min_players < MIN_TEAM_PLAYERS:
+                        print(f"Game {game_id} ignorée : aucun joueur de la team dedans.")
+                    else:
+                        print(f"Game {game_id} ignorée (moins de {MIN_TEAM_PLAYERS} joueurs de la team "
+                              f"dans la même équipe). Pour l'envoyer quand même : "
+                              f"--game {game_id} --force")
                 else:
                     send_game(self.settings, normalised, self.dry_run, self.champion_ids())
             except RuntimeError as e:
@@ -1206,7 +1215,11 @@ def main():
     parser.add_argument("--background", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--dry-run", action="store_true", help="n'envoie rien : affiche ce qui serait envoyé")
     parser.add_argument("--game", type=int, metavar="ID", help="(ré)envoie une game précise, puis s'arrête")
+    parser.add_argument("--force", action="store_true",
+                        help="avec --game : l'envoie même avec moins de 4 joueurs de la team")
     args = parser.parse_args()
+    if args.force and not args.game:
+        parser.error("--force s'utilise avec --game ID (une game précise)")
 
     if args.background:
         # Lancé par le système, sans fenêtre : tout ce qui est affiché va dans le journal
@@ -1233,7 +1246,7 @@ def main():
     while True:
         lcu = wait_for_client(args.background)
         try:
-            companion = Companion(lcu, settings, args.dry_run)
+            companion = Companion(lcu, settings, args.dry_run, 1 if args.force else MIN_TEAM_PLAYERS)
             print(f"Connecté au client LoL ({riot_id(companion.me) or 'compte inconnu'}).")
 
             if args.game:

@@ -1,10 +1,11 @@
 # =====================================================================
 # Notifications Discord automatiques
 #
-# GitHub lance ce workflow aux horaires ci-dessous (en heure UTC).
-# Chaque notification a deux horaires, un pour l'heure d'été et un pour
-# l'heure d'hiver : le script ne poste que pour le bon.
-# ⚠️ Si tu modifies un horaire, modifie aussi SCHEDULES dans scripts/notify.py.
+# L'heure de lancement n'est plus choisie par GitHub (ses tâches
+# planifiées partaient avec des heures de retard) : c'est Supabase qui
+# demande le lancement à l'heure pile, voir sql/17_notifications_a_l_heure.sql.
+#   * planning du jour : tous les jours à 11h47 (heure de Paris) ;
+#   * relance des dispos : le dimanche à 19h47.
 #
 # Lancement manuel : onglet Actions > Notifications Discord > Run workflow.
 # =====================================================================
@@ -12,12 +13,6 @@
 name: Notifications Discord
 
 on:
-  schedule:
-    - cron: "47 17 * * 0"   # relance, dimanche 19h47 (heure d'été)
-    - cron: "47 18 * * 0"   # relance, dimanche 19h47 (heure d'hiver)
-    - cron: "47 9 * * *"   # planning du jour, 11h47 (heure d'été)
-    - cron: "47 10 * * *"   # planning du jour, 11h47 (heure d'hiver)
-
   workflow_dispatch:
     inputs:
       mode:
