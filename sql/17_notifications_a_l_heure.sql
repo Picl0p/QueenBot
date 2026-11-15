@@ -20,7 +20,7 @@
 --
 -- Horaires (heure de Paris, été comme hiver) :
 --   * planning du jour : tous les jours à 11h47 ;
---   * relance des dispos : le dimanche à 19h47.
+--   * relance des dispos : le vendredi et le dimanche à 19h47.
 -- Pour les changer : modifier la section 2 et relancer ce fichier.
 -- =====================================================================
 
@@ -101,7 +101,7 @@ commit;
 -- ---------------------------------------------------------------------
 select cron.schedule('notif-planning', '47 9,10 * * *',
                      $$select public.dispatch_notification('planning', 11)$$);
-select cron.schedule('notif-relance', '47 17,18 * * 0',
+select cron.schedule('notif-relance', '47 17,18 * * 0,5',
                      $$select public.dispatch_notification('relance', 19)$$);
 
 

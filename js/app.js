@@ -86,8 +86,12 @@ Object.assign(state, {
   submissions: [],       // semaines validées (avec commentaires)
   mySubmission: null,    // ma validation pour la semaine affichée
   savedSlots: new Map(), // mes créneaux enregistrés : "jour|heure|minute" → statut
-  mySlots: new Map(),    // mes créneaux pendant la saisie (copie de travail)
+  mySlots: new Map(),    // mes créneaux pendant la saisie (copie de travail de la semaine affichée)
   editing: false,        // mode saisie actif ?
+  // Saisie sur plusieurs semaines : une copie de travail par semaine
+  // visitée pendant la saisie, enregistrées toutes ensemble à la fin.
+  // "2026-10-05" → { slots, comment, saved, savedComment }
+  drafts: new Map(),
   brush: "dispo",        // statut appliqué en cliquant : dispo, a_eviter, pas_dispo
 
   // Rendez-vous
@@ -663,6 +667,7 @@ async function loadBoard() {
   state.mySubmission = submissions.data.find((s) => s.player_id === state.player.id) || null;
   state.weekEvents = weekEvents.data;
 
+  if (state.editing) attachDraft();
   renderAll();
 }
 
@@ -1113,34 +1118,84 @@ function renderComments() {
 function enterEdit() {
   state.editing = true;
   state.brush = "dispo";
-  state.mySlots = new Map(state.savedSlots);           // copie de travail
-  $("#week-comment").value = state.mySubmission?.comment || "";
+  state.drafts = new Map();
+  attachDraft();
   $("#edit-error").hidden = true;
   renderAll();
 }
 
 function exitEdit() {
   state.editing = false;
+  state.drafts = new Map();
   renderAll();
+}
+
+// Branche la saisie sur la copie de travail de la semaine affichée : celle
+// déjà commencée si on revient sur une semaine, sinon une copie de ce qui
+// est enregistré. On peut ainsi passer d'une semaine à l'autre sans rien perdre.
+function attachDraft() {
+  const week = toISODate(state.weekStart);
+  if (!state.drafts.has(week)) {
+    const savedComment = state.mySubmission?.comment || "";
+    state.drafts.set(week, {
+      slots: new Map(state.savedSlots),
+      comment: savedComment,
+      saved: state.savedSlots,
+      savedComment,
+    });
+  }
+  const draft = state.drafts.get(week);
+  state.mySlots = draft.slots;
+  $("#week-comment").value = draft.comment;
+}
+
+// Le commentaire se tape dans le champ : on le recopie dans la copie de travail
+function syncComment() {
+  const draft = state.drafts.get(toISODate(state.weekStart));
+  if (state.editing && draft) draft.comment = $("#week-comment").value;
+}
+
+function draftChanged(draft) {
+  const a = draft.slots, b = draft.saved;
+  const sameSlots = a.size === b.size && [...a].every(([key, status]) => b.get(key) === status);
+  return !(sameSlots && draft.comment.trim() === draft.savedComment);
+}
+
+// Semaines à enregistrer : celles qui ont changé, plus la semaine affichée
+// (l'enregistrer telle quelle, c'est dire à la team "voilà ma semaine",
+// même sans rien cocher). Dans l'ordre du calendrier.
+function weeksToSave() {
+  syncComment();
+  const current = toISODate(state.weekStart);
+  return [...state.drafts]
+    .filter(([week, draft]) => week === current || draftChanged(draft))
+    .sort(([a], [b]) => a.localeCompare(b));
 }
 
 // Y a-t-il des modifications non enregistrées ?
 function hasChanges() {
   if (!state.editing) return false;
-  const a = state.mySlots, b = state.savedSlots;
-  const sameSlots = a.size === b.size && [...a].every(([key, status]) => b.get(key) === status);
-  const sameComment = $("#week-comment").value.trim() === (state.mySubmission?.comment || "");
-  return !(sameSlots && sameComment);
+  syncComment();
+  return [...state.drafts.values()].some(draftChanged);
 }
+
+// "2026-10-05" → "5 oct."
+const weekShort = (week) => new Date(`${week}T00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 
 function confirmLeaveEdit() {
   return !hasChanges() || confirm("Tes modifications ne sont pas enregistrées. Les abandonner ?");
 }
 
 function renderEditCount() {
-  $("#edit-count").textContent = state.mySlots.size === 0
+  let text = state.mySlots.size === 0
     ? "Rien de coché : la team verra que tu n'es pas dispo cette semaine."
     : `${describeCounts(countByStatus(state.mySlots))}.`.replace(/^./, (c) => c.toUpperCase());
+
+  // Plusieurs semaines en cours : on les rappelle, et le bouton les enregistre toutes
+  const weeks = weeksToSave();
+  if (weeks.length > 1) text += ` À enregistrer : semaines du ${weeks.map(([week]) => weekShort(week)).join(", ")}.`;
+  $("#edit-count").textContent = text;
+  $("#save-btn").textContent = weeks.length > 1 ? `Enregistrer mes ${weeks.length} semaines` : "Enregistrer ma semaine";
 }
 
 // Met à jour l'apparence d'une case en mode saisie
@@ -1212,6 +1267,22 @@ async function copyLastWeek() {
   button.disabled = true;
 
   const prevStart = addDays(state.weekStart, -7);
+
+  // Semaine dernière déjà modifiée pendant cette saisie : on reprend la version en cours
+  const prevDraft = state.drafts.get(toISODate(prevStart));
+  if (prevDraft) {
+    button.disabled = false;
+    if (prevDraft.slots.size === 0) {
+      box.textContent = "Rien à reprendre : tu n'as rien coché la semaine dernière.";
+      box.hidden = false;
+      return;
+    }
+    return applyCopiedWeek([...prevDraft.slots].map(([key, status]) => {
+      const [day, hour, minute] = key.split("|");
+      return { day, hour: Number(hour), minute: Number(minute), status };
+    }));
+  }
+
   const { data, error } = await db.from("availabilities")
     .select("day, hour, minute, status")
     .eq("player_id", state.player.id)
@@ -1227,61 +1298,84 @@ async function copyLastWeek() {
     return;
   }
 
+  applyCopiedWeek(data);
+}
+
+// Remplace la saisie de la semaine affichée par les créneaux de la semaine d'avant
+function applyCopiedWeek(rows) {
   // "2026-09-21|20|30" → "2026-09-28|20|30" (même créneau, 7 jours plus tard)
-  state.mySlots = new Map(data.map((s) => {
+  state.mySlots.clear();
+  for (const s of rows) {
     const day = toISODate(addDays(new Date(`${s.day}T00:00`), 7));
-    return [slotKey(day, s.hour, s.minute), s.status];
-  }));
+    state.mySlots.set(slotKey(day, s.hour, s.minute), s.status);
+  }
   document.querySelectorAll("#boards .sq").forEach(refreshCell);
   renderEditCount();
   showToast("Semaine dernière reprise : ajuste si besoin, puis enregistre");
 }
 
+// Enregistre en une fois toutes les semaines modifiées pendant la saisie
 async function saveWeek() {
   const button = $("#save-btn");
+  const weeks = weeksToSave();
   button.disabled = true;
   button.textContent = "Enregistrement…";
   $("#edit-error").hidden = true;
 
-  // "2026-09-28|20|30" + "a_eviter" → { day: "2026-09-28", hour: 20, minute: 30, status: "a_eviter" }
-  const slots = [...state.mySlots].map(([key, status]) => {
-    const [day, hour, minute] = key.split("|");
-    return { day, hour: Number(hour), minute: Number(minute), status };
-  });
+  // Une semaine après l'autre : en cas d'erreur, on sait laquelle n'est pas passée
+  for (const [week, draft] of weeks) {
+    // "2026-09-28|20|30" + "a_eviter" → { day: "2026-09-28", hour: 20, minute: 30, status: "a_eviter" }
+    const slots = [...draft.slots].map(([key, status]) => {
+      const [day, hour, minute] = key.split("|");
+      return { day, hour: Number(hour), minute: Number(minute), status };
+    });
 
-  const { error } = await db.rpc("set_my_availability", {
-    p_week_start: toISODate(state.weekStart),
-    p_slots: slots,
-    p_comment: $("#week-comment").value,
-  });
+    const { error } = await db.rpc("set_my_availability", {
+      p_week_start: week,
+      p_slots: slots,
+      p_comment: draft.comment,
+    });
 
-  button.disabled = false;
-  button.textContent = "Enregistrer ma semaine";
-
-  if (error) {
-    const box = $("#edit-error");
-    box.textContent = `L'enregistrement a échoué : ${error.message}`;
-    box.hidden = false;
-    return;
+    if (error) {
+      button.disabled = false;
+      renderEditCount();   // remet le libellé du bouton
+      const box = $("#edit-error");
+      box.textContent = `L'enregistrement de la semaine du ${weekShort(week)} a échoué : ${error.message}`;
+      box.hidden = false;
+      return;
+    }
+    // Cette semaine-là est enregistrée : elle n'est plus "à enregistrer"
+    draft.saved = new Map(draft.slots);
+    draft.savedComment = draft.comment.trim();
   }
 
+  button.disabled = false;
   state.editing = false;
+  state.drafts = new Map();
   await loadBoard();
-  showToast("Disponibilités sauvegardées");
+  showToast(weeks.length > 1 ? `Disponibilités sauvegardées (${weeks.length} semaines)` : "Disponibilités sauvegardées");
+}
+
+// Changer de semaine pendant la saisie garde ce qui a été coché : tout est
+// enregistré à la fin, d'un coup. Les semaines passées ne se modifient pas.
+function showWeek(weekStart) {
+  if (state.editing) {
+    if (weekStart < mondayOf(new Date())) {
+      showToast("Les semaines passées ne peuvent plus être modifiées");
+      return;
+    }
+    syncComment();
+  }
+  state.weekStart = weekStart;
+  loadBoard();
 }
 
 function changeWeek(delta) {
-  if (!confirmLeaveEdit()) return;
-  state.editing = false;
-  state.weekStart = addDays(state.weekStart, 7 * delta);
-  loadBoard();
+  showWeek(addDays(state.weekStart, 7 * delta));
 }
 
 function goToCurrentWeek() {
-  if (!confirmLeaveEdit()) return;
-  state.editing = false;
-  state.weekStart = mondayOf(new Date());
-  loadBoard();
+  showWeek(mondayOf(new Date()));
 }
 
 

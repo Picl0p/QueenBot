@@ -5,7 +5,7 @@
 # planifiées partaient avec des heures de retard) : c'est Supabase qui
 # demande le lancement à l'heure pile, voir sql/17_notifications_a_l_heure.sql.
 #   * planning du jour : tous les jours à 11h47 (heure de Paris) ;
-#   * relance des dispos : le dimanche à 19h47.
+#   * relance des dispos : le vendredi et le dimanche à 19h47.
 #
 # Lancement manuel : onglet Actions > Notifications Discord > Run workflow.
 # =====================================================================
