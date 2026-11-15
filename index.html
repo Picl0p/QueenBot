@@ -91,6 +91,11 @@
           <ul id="best-slots-list" class="best-slots-list"></ul>
         </div>
 
+        <!-- Réservé aux admins (affiché par app.js) : récap de la semaine sur Discord -->
+        <div id="announce-row" class="announce-row" hidden>
+          <button id="announce-btn" class="btn btn-ghost" type="button">📣 Annoncer la semaine sur Discord</button>
+        </div>
+
         <p id="board-help" class="board-help" hidden></p>
 
         <!-- Choix du "pinceau" pendant la saisie -->
@@ -273,6 +278,27 @@
         <button id="ev-save" class="btn btn-primary" type="submit">Ajouter</button>
         <button id="ev-cancel" class="btn btn-ghost" type="button">Annuler</button>
         <button id="ev-delete" class="btn btn-ghost btn-danger" type="button" hidden>Supprimer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Annonce de la semaine sur Discord (admins) -->
+  <dialog id="announce-dialog" class="event-dialog" aria-labelledby="announce-dialog-title">
+    <form id="announce-form" novalidate>
+      <h2 id="announce-dialog-title">Annoncer la semaine</h2>
+      <p class="announce-intro">Le message listera sur Discord :</p>
+      <ul id="announce-list" class="announce-list"></ul>
+
+      <div class="field">
+        <label for="announce-note">Petit mot <span class="optional">(facultatif)</span></label>
+        <textarea id="announce-note" rows="3" maxlength="500" placeholder="Ex. : jeudi on commence à 20h30 au lieu de 20h"></textarea>
+      </div>
+
+      <p id="announce-error" class="edit-error" role="alert" hidden></p>
+
+      <div class="edit-actions">
+        <button id="announce-send" class="btn btn-primary" type="submit">Envoyer sur Discord</button>
+        <button id="announce-cancel" class="btn btn-ghost" type="button">Annuler</button>
       </div>
     </form>
   </dialog>

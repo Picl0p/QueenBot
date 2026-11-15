@@ -1,11 +1,13 @@
 """
 Notifications Discord de la team Queen's Gambit.
 
-Deux notifications :
+Trois notifications :
   * relance  : le vendredi et le dimanche soir, mentionne ceux qui n'ont pas rempli
                leurs dispos de la semaine suivante ;
   * planning : chaque jour, annonce les rendez-vous du jour avec
-               qui est dispo, à éviter, pas dispo ou n'a pas répondu.
+               qui est dispo, à éviter, pas dispo ou n'a pas répondu ;
+  * semaine  : sur demande d'un admin (bouton de la page Planning),
+               annonce tous les rendez-vous de la semaine.
 
 Le script est lancé par GitHub Actions (.github/workflows/notifications.yml),
 à l'heure pile, sur demande de Supabase (sql/17_notifications_a_l_heure.sql).
@@ -18,7 +20,10 @@ Variables d'environnement :
   SITE_URL              adresse du site, pour les liens      (facultatif)
   DISCORD_ROLE_ID       rôle à mentionner pour le planning   (facultatif)
   SCHEDULE              cron GitHub qui a déclenché le script (plus utilisé)
-  MODE                  "relance" ou "planning" (lancement manuel)
+  MODE                  "relance", "planning" ou "semaine" (lancement manuel)
+  WEEK                  lundi de la semaine à annoncer, "2026-11-16"
+                        (mode semaine ; par défaut : la semaine en cours)
+  NOTE                  petit mot de l'admin ajouté au message (mode semaine)
   DRY_RUN               "true" : affiche le message sans l'envoyer
 
 Test en local (affiche sans envoyer) :
@@ -304,6 +309,65 @@ def planning(today):
 
 
 # ---------------------------------------------------------------------
+# Notification 3 : programme de la semaine (bouton de la page Planning)
+# ---------------------------------------------------------------------
+
+def semaine(week_start):
+    start = datetime.combine(week_start, time.min, tzinfo=PARIS)
+    end = start + timedelta(days=7)
+
+    events = supabase("events", {
+        "select": "title,type,starts_at,ends_at,opponent,discord_thread_url",
+        "starts_at": [f"gte.{iso_utc(start)}", f"lt.{iso_utc(end)}"],
+        "status": "neq.annule",
+        "order": "starts_at",
+    })
+    if not events:
+        print(f"Aucun rendez-vous la semaine du {date_fr(week_start)} : pas de message.")
+        return
+
+    # Un paragraphe par jour, une ligne par rendez-vous
+    jours = {}
+    for ev in events:
+        debut = datetime.fromisoformat(ev["starts_at"]).astimezone(PARIS)
+        fin = datetime.fromisoformat(ev["ends_at"]).astimezone(PARIS) if ev["ends_at"] else None
+        horaire = f"{heure_fr(debut)} – {heure_fr(fin)}" if fin else heure_fr(debut)
+        ligne = f"{horaire} · **{TYPE_LABELS.get(ev['type'], ev['type'])}**"
+        if ev["opponent"]:
+            ligne += f" contre {ev['opponent']}"
+        elif ev["title"] and ev["title"] != TYPE_LABELS.get(ev["type"]):
+            ligne += f" · {ev['title']}"
+        if ev["discord_thread_url"]:
+            ligne += f" · [post]({ev['discord_thread_url']})"
+        jours.setdefault(debut.date(), []).append(ligne)
+
+    description = "\n\n".join(
+        f"**{date_fr(jour).capitalize()}**\n" + "\n".join(lignes)
+        for jour, lignes in jours.items()
+    )
+    # Le petit mot de l'admin, en tête, en citation
+    note = env("NOTE", required=False)[:500]
+    if note:
+        description = "\n".join(f"> {l}" for l in note.splitlines()) + "\n\n" + description
+    nb = len(events)
+    embed = {
+        "title": f"Programme de la semaine du {date_fr(week_start)}",
+        "description": description[:4000],
+        "color": COULEUR_OR,
+        "footer": {"text": f"{nb} rendez-vous · {len(jours)} jour{'s' if len(jours) > 1 else ''}"},
+    }
+    if env("SITE_URL", required=False):
+        embed["url"] = env("SITE_URL")
+
+    role = env("DISCORD_ROLE_ID", required=False)
+    send_discord({
+        "content": (f"<@&{role}> " if role else "") + "📅 **Le programme de la semaine est prêt !**",
+        "embeds": [embed],
+        "allowed_mentions": {"roles": [role] if role else []},
+    })
+
+
+# ---------------------------------------------------------------------
 # Point d'entrée
 # ---------------------------------------------------------------------
 
@@ -354,6 +418,9 @@ def main():
         relance(today)
     elif mode == "planning":
         planning(today)
+    elif mode == "semaine":
+        week = env("WEEK", required=False)
+        semaine(monday_of(date.fromisoformat(week) if week else today))
     else:
         sys.exit(f"Mode inconnu : {mode!r}")
 

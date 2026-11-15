@@ -650,7 +650,7 @@ async function loadBoard() {
       .select("player_id, comment, submitted_at, players(pseudo)")
       .eq("week_start", week),
     db.from("events")
-      .select("id, title, type, starts_at, ends_at, opponent")
+      .select("id, title, type, starts_at, ends_at, opponent, status")
       .gte("starts_at", weekStartTs)
       .lt("starts_at", weekEndTs),
   ]);
@@ -692,6 +692,7 @@ function renderAll() {
     renderComments();
   }
   renderBestSlots();
+  $("#announce-row").hidden = !isAdmin() || state.editing || isPastWeek();
 }
 
 // Deux versions du libellé : la courte ("29 sept.") remplace la longue sur
@@ -1097,6 +1098,72 @@ function renderBestSlots() {
   }));
 }
 
+// --- Annonce de la semaine sur Discord (admins) ---
+//
+// Le message part dans le salon du planning du midi, que seul GitHub
+// connaît : la base demande à GitHub de l'envoyer (fonction
+// request_week_announcement, voir sql/18_annonce_semaine.sql).
+
+const announcedEvents = () => state.weekEvents
+  .filter((ev) => ev.status !== "annule")
+  .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+
+function openAnnounceDialog() {
+  const events = announcedEvents();
+  if (events.length === 0) {
+    showToast("Aucun rendez-vous à annoncer cette semaine.");
+    return;
+  }
+  $("#announce-list").replaceChildren(...events.map((ev) => {
+    const start = new Date(ev.starts_at);
+    const end = ev.ends_at ? new Date(ev.ends_at) : null;
+    const day = start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric" });
+    const hours = slotLabel(start.getHours(), start.getMinutes())
+      + (end ? ` – ${slotLabel(end.getHours(), end.getMinutes())}` : "");
+    const what = (TYPE_LABELS[ev.type] || ev.type) + (ev.opponent ? ` contre ${ev.opponent}` : "");
+    return el("li", { text: `${day.charAt(0).toUpperCase() + day.slice(1)} · ${hours} · ${what}` });
+  }));
+  $("#announce-error").hidden = true;
+  $("#announce-send").disabled = false;
+  $("#announce-dialog").showModal();
+}
+
+async function sendAnnouncement(e) {
+  e.preventDefault();
+  const button = $("#announce-send");
+  const error = $("#announce-error");
+  button.disabled = true;
+  error.hidden = true;
+
+  const { data, error: rpcError } = await db.rpc("request_week_announcement", {
+    p_week_start: toISODate(state.weekStart),
+    p_note: $("#announce-note").value.trim() || null,
+  });
+  if (rpcError || !data?.ok) {
+    error.textContent = rpcError ? `L'envoi a échoué : ${rpcError.message}` : data.message;
+    error.hidden = false;
+    button.disabled = false;
+    return;
+  }
+
+  $("#announce-dialog").close();
+  $("#announce-note").value = "";
+  showToast("Annonce demandée…");
+
+  // La base appelle GitHub juste après : on attend sa réponse (30 s au plus)
+  for (let i = 0; i < 15; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const { data: answer } = await db.rpc("week_announcement_status");
+    if (answer?.status === 204) {
+      return showToast("Annonce en route : elle arrive sur Discord d'ici une minute.");
+    }
+    if (answer?.status != null) {
+      return showError(`GitHub a refusé l'annonce (${answer.status}) : vérifie le jeton GitHub (sql/14_bouton_synchroniser.sql, section 3).`);
+    }
+  }
+  showToast("Pas de réponse de GitHub pour l'instant : vérifie l'onglet Actions dans quelques minutes.");
+}
+
 function renderComments() {
   const withComment = state.submissions.filter((s) => s.comment);
   $("#comments-block").hidden = withComment.length === 0;
@@ -1420,6 +1487,11 @@ $("#ev-delete").addEventListener("click", deleteEvent);
 $("#ev-type").addEventListener("change", updateTitlePlaceholder);
 $("#ev-opgg").addEventListener("change", fillRosterFromLink);
 addRosterArrows();
+
+// Annonce de la semaine (admins)
+$("#announce-btn").addEventListener("click", openAnnounceDialog);
+$("#announce-form").addEventListener("submit", sendAnnouncement);
+$("#announce-cancel").addEventListener("click", () => $("#announce-dialog").close());
 
 // Prévient si on ferme l'onglet avec des modifications non enregistrées
 window.addEventListener("beforeunload", (e) => {
